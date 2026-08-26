@@ -1,16 +1,14 @@
 {
   "name": "nori-os-offline",
-  "version": "2.0.0",
-  "private": false,
-  "description": "NoriOS offline archive + local backend for the public NoriOS web client - Refactored with Astro Islands Architecture",
+  "version": "1.0.0",
+  "private": true,
+  "description": "NoriOS offline archive + local backend for the public NoriOS web client",
   "type": "module",
   "scripts": {
-    "dev": "astro dev",
     "start": "node server.mjs",
+    "dev": "node --watch server.mjs",
     "start:offline": "node server.mjs --offline",
-    "build": "astro build",
-    "preview": "astro preview",
-    "check": "node --check server.mjs && astro check",
+    "check": "node --check server.mjs",
     "test": "node --test"
   },
   "engines": {
@@ -18,25 +16,6 @@
   },
   "packageManager": "pnpm@11.24.0",
   "dependencies": {
-    "astro": "^4.16.18"
-  },
-  "devDependencies": {
-    "@astrojs/check": "^0.9.0",
-    "typescript": "^5.6.0"
-  },
-  "license": "GPL-3.0-or-later",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/nori-os/offline-archive.git"
-  },
-  "keywords": [
-    "norios",
-    "astro",
-    "islands-architecture",
-    "live2d",
-    "web-os",
-    "offline-first"
-  ],
-  "author": "NoriOS Community",
-  "contributors": []
+    "astro": "^7.2.6"
+  }
 }
