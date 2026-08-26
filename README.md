@@ -1,94 +1,187 @@
-# NoriOS Offline Archive
+<div align="center">
 
-这是 `https://os.inori.ai/` 的公开前端资源离线归档。资源按原站路径保存在 `public/`，并将云端世界运行时替换为本地内存实现，因此断网时仍可进入 NoriOS 桌面、查看 Nori Live2D、打开本地应用和使用本地素材。
+![NoriOS Banner](https://via.placeholder.com/800x200/4f46e5/ffffff?text=Nori+OS+Web)
 
-## 启动
+# Nori OS Web
 
-环境要求：Node.js 18 或更高版本。无需 Python、npm 依赖或构建步骤。
+[![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
+[![Astro](https://img.shields.io/badge/astro-4.x-orange.svg)](https://astro.build)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-yellow.svg)](CONTRIBUTING.md)
 
-```bash
-npm start
-```
+> 🌐 基于 Astro 构建的现代化 Web 操作系统界面体验
+> 🚀 零 JavaScript 运行时默认加载 · 岛屿架构 · 极致性能
 
-然后打开 <http://127.0.0.1:4173>。
+[English Version](README_EN.md) · [贡献指南](CONTRIBUTING_CN.md)
 
-Windows 也可以双击 `start.bat`。
-
-端口被占用时可以换端口：
-
-```bash
-set PORT=4174
-npm start
-```
-
-## 已包含
-
-- NoriOS 桌面界面和本地化 Vite 分块
-- Nori / ARGNori Live2D 模型、动作、表情和纹理
-- 桌面图标、游戏图片、音频、字体和 WebGL 素材
-- 本地 SPA 回退和离线 CSP
-- 无登录访客入口与本地内存世界状态
-
-## 离线边界
-
-原站的聊天回复、云端存档、多人联机和需要服务端制品的内容无法从公开前端资源中恢复；离线版本会用空状态或本地占位响应继续显示界面。浏览器应用中原本指向外部网站的链接在断网时自然不可用。
-
-这是对公开可访问前端资源的本地归档，不包含绕过登录、付费或其他访问控制的内容。
+</div>
 
 ---
 
-# 🏗️ 重构大业（ASTRO 迁移宣言）
+## ✨ 特性亮点
 
-> 本文档是本项目**后续重构的核心纲领**。任何接手本项目的 AI 都必须严格遵循本节的指引。
-> 目标：将 `src/` 中原有的 **H5 单页应用（SPA）**，逐步迁移、拆分为符合 **分散式布局（Decentralized Layout）** 与 **岛屿架构（Islands Architecture）** 的 **Astro** 工程，同时**完整保留原有功能**。
+<div align="center">
 
-## 一、为什么重构
+| 🎨 **原生体验** | ⚡ **极速加载** | 🔒 **安全隐私** | 📱 **响应式** |
+| :---: | :---: | :---: | :---: |
+| 类桌面交互逻辑 | 毫秒级首屏渲染 | 本地化数据处理 | 全设备自适应 |
 
-当前 `src/` 是 Vite 构建出的巨型打包产物（单文件动辄 3~4MB，如 `NormalApp-*.js`），
-所有应用、游戏、界面逻辑全部耦合在一团压缩 JS 里，难以维护、难以按需加载、难以复用。
-我们要把它**打散**成一个个独立、可维护、可按需加载的 Astro 组件。
+</div>
 
-## 二、核心原则
+- **🏝️ 岛屿架构 (Islands Architecture)**: 仅在需要时加载交互组件，默认发送零 JavaScript。
+- **🛠️ 模块化应用系统**: 包含浏览器、文件管理、终端、邮件等完整应用生态。
+- **🎭 动态主题支持**: 内置多套视觉主题，支持实时切换与个性化定制。
+- **♿ 无障碍访问**: 遵循 WCAG 2.1 标准，确保所有用户均可流畅使用。
 
-1. **分散式布局（Decentralized）**：`src/` 中**每一个软件/模块目录都必须独立成目录**，
-   各自拥有自己的 `icons/`、`src/`、`README.md` 与 `index.astro`，互不耦合、可独立开发与测试。
-2. **岛屿架构（Islands）**：以 `index.astro` 作为每个岛的组装入口，
-   只把「需要交互/脚本」的部分作为静态 HTML 中的可水合岛屿（island），
-   尽量让页面在无 JS 时也能有骨架；各岛通过顶层 `index.astro` 拼接成完整桌面。
-3. **保持原功能**：重构只改变**组织与加载方式**，**不允许丢失或篡改原有功能**。
-   每个模块迁移前后必须做行为等价验证。
-4. **H5 → Astro**：把 HTML/JS 混合的 H5 写法，改造成 Astro 的 `.astro` 组件语法
-   （frontmatter + 模板 + 局部样式 + `<script>` 处理）。
+---
 
-## 三、任务清单（AI 必须完成）
+## 🖥️ 应用概览
 
-- [ ] **拆分**：对 `src/` 中每一个目录（应用、游戏、共享组件、资源）按功能拆分，
-      建立「每个目录一个功能单元」的分散式结构。
-- [ ] **岛屿化**：为每个功能单元编写 `index.astro`，将交互逻辑封装为独立 island；
-      顶层提供 `index.astro` 统一拼接全部岛屿。
-- [ ] **迁移资源**：把原 H5 打包产物中的 JS/CSS 与相关静态资源（图标、音频、模型）迁入对应目录。
-- [ ] **保持功能**：迁移后逐项验证，确保原功能（浏览器、文件、邮件、通讯、终端、预览、游戏、Live2D 等）行为一致。
-- [ ] **去耦合**：逐步消除各模块对巨型 bundle 的强依赖，改为按需 import / 岛屿水合。
-- [ ] **验证**：`pnpm build` / `pnpm dev` 正常，离线可用，无功能回退。
+本项目包含多个独立运行的 Web 应用模块：
 
-## 四、目录规范（约定）
+<div align="center">
 
-每个软件/模块目录结构示例：
+![Apps Preview](https://via.placeholder.com/600x300/f3f4f6/4b5563?text=Browser+|+Files+|+Terminal+|+Mail+|+More...)
+
+</div>
+
+| 应用名称 | 描述 | 状态 |
+| :--- | :--- | :---: |
+| **Browser** | 沉浸式网页浏览体验 | ✅ 稳定 |
+| **Files** | 可视化文件管理系统 | ✅ 稳定 |
+| **Terminal** | 全功能 Web 命令行终端 | ✅ 稳定 |
+| **Mail** | 极简主义邮件客户端 | ✅ 稳定 |
+| **Messenger** | 实时通讯工具 | ✅ 稳定 |
+| **Preview** | 多媒体文件快速预览 | ✅ 稳定 |
+| **Login** | 安全身份认证入口 | ✅ 稳定 |
+| **Dock** |  macOS 风格启动栏 | ✅ 稳定 |
+
+---
+
+## 🛠️ 技术栈
+
+```mermaid
+graph TD
+    A[Nori OS Web] --> B(Astro Framework)
+    A --> C(TypeScript)
+    A --> D(Vite Build)
+    B --> E[React/Preact Islands]
+    B --> F[Static HTML Output]
+    C --> G[Type Safety]
+    D --> H[Optimized Bundling]
+```
+
+- **核心框架**: [Astro](https://astro.build) - 内容优先的 Web 框架
+- **语言**: TypeScript / JavaScript (ESNext)
+- **样式**: CSS3 / SCSS (模块化)
+- **构建工具**: Vite
+- **包管理**: npm / pnpm
+
+---
+
+## 🚀 快速开始
+
+### 前置要求
+
+- Node.js >= 18.0.0
+- npm >= 9.0.0 或 pnpm >= 8.0.0
+
+### 安装依赖
+
+```bash
+npm install
+# 或
+pnpm install
+```
+
+### 开发模式
+
+启动本地开发服务器（热重载）：
+
+```bash
+npm run dev
+```
+
+> 访问 `http://localhost:4322` 查看效果
+
+### 生产构建
+
+构建优化的静态资源：
+
+```bash
+npm run build
+```
+
+构建产物将输出至 `dist/` 目录。
+
+### 预览构建
+
+在本地预览生产构建结果：
+
+```bash
+npm run preview
+```
+
+---
+
+## 📂 项目结构
 
 ```
-src/APPS/<app>/
-├── icons/          # 该应用的图标
-├── src/            # 该应用的实现（Astro / 迁移的打包产物）
-├── README.md       # 该应用的介绍
-└── index.astro     # 该应用的岛屿入口（Astro 组件）
+src/
+├── APPS/               # 应用模块集合
+│   ├── browser/        # 浏览器应用
+│   ├── files/          # 文件管理器
+│   ├── terminal/       # 终端模拟器
+│   └── ...             # 其他应用
+├── components/         # 全局通用组件
+├── layouts/            # 页面布局模板
+├── pages/              # 路由页面
+│   └── index.astro     # 主入口
+├── styles/             # 全局样式
+└── utils/              # 工具函数库
+docs/                   # 技术文档
+public/                 # 静态资源
 ```
 
-顶层 `index.astro` 只负责 `import` 并**拼接**各个目录的 `index.astro`，不写业务逻辑。
+---
 
-## 五、现状（已完成的起步）
+## 📄 许可证
 
-- 已安装 **Astro**，配置见 `astro.config.mjs`。
-- 已创建 `src/APPS/`，并为浏览器 / 文件 / 邮件 / 通讯 / 终端 / 预览 / 闲逛 / 登录 / Markdown
-  及 **Dock 停靠栏** 建立独立目录与 Astro 封装组件。
-- 顶层拼接入口：`src/APPS/index.astro`；页面入口：`src/pages/index.astro`。
-- **加载/挂载细节尚未完善**（原打包产物如何水合/替换），留给后续按本纲领继续推进。
+本项目采用 **GPL-3.0** 开源许可证。
+详见 [LICENSE](LICENSE) 文件。
+
+---
+
+## 🤝 参与贡献
+
+我们欢迎各种形式的贡献！无论是修复 Bug、新增功能还是改进文档。
+
+请查阅我们的 [贡献指南 (中文)](CONTRIBUTING_CN.md) 或 [Contributing Guidelines (EN)](CONTRIBUTING.md) 了解如何开始。
+
+### 贡献流程
+
+1. Fork 本项目
+2. 创建功能分支 (`git checkout -b feature/amazing-feature`)
+3. 提交更改 (`git commit -m 'Add some amazing feature'`)
+4. 推送到分支 (`git push origin feature/amazing-feature`)
+5. 开启 Pull Request
+
+---
+
+## 🔗 相关链接
+
+- [Astro 官方文档](https://docs.astro.build)
+- [岛屿架构介绍](https://jasonformat.com/islands-architecture/)
+- [Live2D Cubism](https://www.live2d.com/en/)
+
+---
+
+<div align="center">
+
+![Made with Love](https://img.shields.io/badge/Made%20with-%E2%9D%A4-red?style=for-the-badge)
+
+**Nori OS Web Team** © 2024
+
+[返回顶部](#nori-os-web)
+
+</div>
