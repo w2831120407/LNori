@@ -14,8 +14,11 @@ import Idle from './idle/index.astro';
 import Login from './login/index.astro';
 import Markdown from './markdown/index.astro';
 import Dock from './dock/index.astro';
+import CakeDuel from '../dist/cakeduel/index.astro';
+import Pictionary from '../dist/pictionary/index.astro';
 
 // 软件清单（供 Dock 生成入口 / 顶层注册表使用）
+// 动态识别所有可用的 APPs
 export const apps = [
   { id: 'browser',   title: '浏览器',   component: Browser },
   { id: 'files',     title: '文件',     component: Files },
@@ -26,6 +29,8 @@ export const apps = [
   { id: 'idle',      title: '闲逛',     component: Idle },
   { id: 'login',     title: '登录',     component: Login },
   { id: 'markdown',  title: 'Markdown', component: Markdown },
+  { id: 'cakeduel',  title: '蛋糕对决', component: CakeDuel },
+  { id: 'pictionary',title: '你画我猜', component: Pictionary },
 ];
 ---
 
@@ -41,6 +46,8 @@ export const apps = [
     <Idle />
     <Login />
     <Markdown />
+    <CakeDuel />
+    <Pictionary />
   </main>
 
   <!-- Dock 停靠栏：单独重构后拼接到桌面 -->
