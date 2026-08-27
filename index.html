@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARGNori Live2D Model</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; }
+        canvas { display: block; margin: 0 auto; }
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 90%;
+            z-index: 100;
+        }
+        .controls button {
+            padding: 8px 16px;
+            background: #4a4a6a;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        .controls button:hover { background: #6a6a8a; }
+        .controls select {
+            padding: 8px 12px;
+            background: #4a4a6a;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div class="controls" id="controls"></div>
+    
+    <script src="live2dcubismcore.js"></script>
+    <script type="module">
+        import * as PIXI from 'https://cdn.jsdelivr.net/npm/pixi.js@7.3.2/lib/index.min.js';
+        
+        const MODEL_PATH = './ARGNori.model3.json';
+        
+        class Live2DViewer {
+            constructor(canvas, controlsContainer) {
+                this.canvas = canvas;
+                this.controlsContainer = controlsContainer;
+                this.app = new PIXI.Application({
+                    view: canvas,
+                    autoStart: true,
+                    resizeTo: window,
+                    transparent: true,
+                    backgroundColor: 0x1a1a2e
+                });
+                
+                this.container = new PIXI.Container();
+                this.app.stage.addChild(this.container);
+                
+                this.textures = [];
+                this.modelJson = null;
+                this.currentMotion = null;
+                this.currentExpression = null;
+                
+                this.loadModel();
+            }
+            
+            async loadModel() {
+                try {
+                    const response = await fetch(MODEL_PATH);
+                    this.modelJson = await response.json();
+                    
+                    console.log('Loading ARGNori Live2D model...');
+                    
+                    // Load all textures
+                    for (const texPath of this.modelJson.FileReferences.Textures) {
+                        const tex = await PIXI.Assets.load(texPath);
+                        this.textures.push(tex);
+                    }
+                    
+                    console.log(`Loaded ${this.textures.length} textures`);
+                    
+                    // Create sprite container with all textures
+                    this.setupSprites();
+                    
+                    // Setup UI controls
+                    this.setupControls();
+                    
+                    // Start idle animation
+                    this.startIdleAnimation();
+                    
+                } catch (error) {
+                    console.error('Failed to load model:', error);
+                }
+            }
+            
+            setupSprites() {
+                // Create sprites from textures arranged vertically for animation
+                this.sprites = [];
+                for (let i = 0; i < this.textures.length; i++) {
+                    const sprite = new PIXI.Sprite(this.textures[i]);
+                    sprite.anchor.set(0.5);
+                    sprite.scale.set(0.5);
+                    sprite.x = this.app.screen.width / 2;
+                    sprite.y = this.app.screen.height / 2 + i * 5;
+                    sprite.visible = i === 0;
+                    this.container.addChild(sprite);
+                    this.sprites.push(sprite);
+                }
+            }
+            
+            setupControls() {
+                const motions = this.modelJson.FileReferences.Motions || {};
+                const expressions = this.modelJson.FileReferences.Expressions || [];
+                
+                // Motion selector
+                const motionSelect = document.createElement('select');
+                motionSelect.innerHTML = '<option value="">-- Select Motion --</option>';
+                
+                for (const [group, motionList] of Object.entries(motions)) {
+                    motionList.forEach((m, idx) => {
+                        const opt = document.createElement('option');
+                        opt.value = JSON.stringify({ group, index: idx });
+                        opt.textContent = `${group}: ${m.File.split('/').pop()}`;
+                        motionSelect.appendChild(opt);
+                    });
+                }
+                
+                motionSelect.addEventListener('change', (e) => {
+                    if (e.target.value) {
+                        const { group, index } = JSON.parse(e.target.value);
+                        this.playMotion(group, index);
+                    }
+                });
+                
+                // Expression selector
+                const exprSelect = document.createElement('select');
+                exprSelect.innerHTML = '<option value="">-- Select Expression --</option>';
+                expressions.forEach((exp, idx) => {
+                    const opt = document.createElement('option');
+                    opt.value = idx;
+                    opt.textContent = exp.Name;
+                    exprSelect.appendChild(opt);
+                });
+                
+                exprSelect.addEventListener('change', (e) => {
+                    if (e.target.value !== '') {
+                        this.applyExpression(parseInt(e.target.value));
+                    }
+                });
+                
+                this.controlsContainer.appendChild(motionSelect);
+                this.controlsContainer.appendChild(exprSelect);
+            }
+            
+            startIdleAnimation() {
+                let frame = 0;
+                const animate = () => {
+                    frame++;
+                    // Simple breathing animation
+                    const scale = 1 + Math.sin(frame * 0.05) * 0.02;
+                    this.sprites.forEach(s => {
+                        s.scale.set(0.5 * scale);
+                    });
+                    requestAnimationFrame(animate);
+                };
+                animate();
+            }
+            
+            async playMotion(group, index) {
+                const motionData = this.modelJson.FileReferences.Motions[group][index];
+                console.log(`Playing motion: ${motionData.File}`);
+                
+                try {
+                    const response = await fetch(motionData.File);
+                    const motionJson = await response.json();
+                    console.log('Motion loaded:', motionJson.Meta);
+                    // In a full implementation, this would animate the model parameters
+                } catch (error) {
+                    console.error('Failed to load motion:', error);
+                }
+            }
+            
+            async applyExpression(index) {
+                const exprData = this.modelJson.FileReferences.Expressions[index];
+                console.log(`Applying expression: ${exprData.Name}`);
+                
+                try {
+                    const response = await fetch(exprData.File);
+                    const expJson = await response.json();
+                    console.log('Expression loaded:', expJson);
+                } catch (error) {
+                    console.error('Failed to load expression:', error);
+                }
+            }
+            
+            resize() {
+                this.app.resize();
+                this.sprites.forEach(s => {
+                    s.x = this.app.screen.width / 2;
+                    s.y = this.app.screen.height / 2;
+                });
+            }
+        }
+        
+        // Initialize viewer
+        const canvas = document.getElementById('canvas');
+        const controls = document.getElementById('controls');
+        const viewer = new Live2DViewer(canvas, controls);
+        
+        window.addEventListener('resize', () => viewer.resize());
+    </script>
+</body>
+</html>
