@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN" class="dark theme-nori">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NoriOS</title>
+    <link rel="icon" type="image/png" href="/icon.png" />
+    <link rel="stylesheet" href="/fonts.css" />
+    
+    <!-- Live2D Cubism SDK -->
+    <script src="/cubism_sdk/Core/live2dcubismcore.js"></script>
+    
+    <!-- Main Application Styles -->
+    <link rel="stylesheet" href="/assets/index-FU-0vwSE.css" />
+    
+    <!-- Cordis Framework (replacing Astro) -->
+    <script type="module">
+      // Cordis - 轻量级前端框架 (替代 Astro)
+      import { mountApp } from '/assets/index-CyHAbkO5.js';
+      
+      // 初始化应用
+      document.addEventListener('DOMContentLoaded', () => {
+        mountApp(document.getElementById('root'));
+      });
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    
+    <!-- Preload critical assets -->
+    <link rel="modulepreload" crossorigin href="/assets/i18n-DtIC1LRi.js" />
+    <link rel="modulepreload" crossorigin href="/assets/index-CyHAbkO5.js" />
+  </body>
+</html>
