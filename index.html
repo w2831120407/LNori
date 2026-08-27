@@ -1,185 +1,224 @@
-<!doctype html>
-<html lang="zh-CN" class="dark theme-nori">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>NoriOS Offline Archive</title>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARGNori Live2D Model</title>
     <style>
-      :root {
-        --bg: #0d0f1a;
-        --panel: #161a2b;
-        --panel-2: #1e2440;
-        --text: #e8eaf6;
-        --muted: #9aa3c4;
-        --accent: #7c8cff;
-        --accent-2: #ff9ecb;
-        --border: #2a3152;
-        --code-bg: #0a0c16;
-        --radius: 14px;
-      }
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      html, body { height: 100%; }
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
-          "Microsoft YaHei", sans-serif;
-        background: radial-gradient(1200px 600px at 20% -10%, #232a52 0%, transparent 60%),
-          radial-gradient(1000px 500px at 90% 110%, #2a2340 0%, transparent 55%), var(--bg);
-        color: var(--text);
-        line-height: 1.7;
-        padding: 48px 20px;
-        min-height: 100%;
-      }
-      .wrap { max-width: 860px; margin: 0 auto; }
-
-      header {
-        text-align: center;
-        padding: 40px 24px;
-        background: linear-gradient(160deg, var(--panel), var(--panel-2));
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        margin-bottom: 28px;
-      }
-      header h1 {
-        font-size: 2.2rem;
-        font-weight: 800;
-        letter-spacing: 0.5px;
-      }
-      header h1 .tag {
-        color: var(--accent);
-      }
-      header .sub {
-        color: var(--muted);
-        margin-top: 10px;
-        font-size: 1.05rem;
-      }
-      .pill {
-        display: inline-block;
-        margin-top: 16px;
-        padding: 6px 16px;
-        font-size: 0.85rem;
-        color: #0d0f1a;
-        background: linear-gradient(90deg, var(--accent), var(--accent-2));
-        border-radius: 999px;
-        font-weight: 700;
-      }
-
-      section {
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        padding: 28px 30px;
-        margin-bottom: 24px;
-      }
-      h2 {
-        font-size: 1.35rem;
-        font-weight: 700;
-        margin-bottom: 16px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid var(--border);
-        color: var(--accent-2);
-      }
-      p { margin-bottom: 14px; color: var(--text); }
-      p.muted { color: var(--muted); font-size: 0.95rem; }
-
-      pre {
-        background: var(--code-bg);
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 16px 18px;
-        overflow-x: auto;
-        margin: 14px 0;
-      }
-      code {
-        font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-        font-size: 0.9rem;
-        color: #c7e3ff;
-      }
-      .cmt { color: #6b779c; }
-
-      ul { list-style: none; }
-      ul li {
-        padding: 9px 0 9px 30px;
-        position: relative;
-        color: var(--text);
-        border-bottom: 1px dashed var(--border);
-      }
-      ul li:last-child { border-bottom: none; }
-      ul li::before {
-        content: "";
-        position: absolute;
-        left: 4px;
-        top: 15px;
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, var(--accent), var(--accent-2));
-        box-shadow: 0 0 8px var(--accent);
-      }
-
-      footer {
-        text-align: center;
-        color: var(--muted);
-        font-size: 0.85rem;
-        padding: 10px 0 30px;
-      }
-      a { color: var(--accent); text-decoration: none; }
-      a:hover { text-decoration: underline; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; }
+        canvas { display: block; margin: 0 auto; }
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 90%;
+            z-index: 100;
+        }
+        .controls button {
+            padding: 8px 16px;
+            background: #4a4a6a;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        .controls button:hover { background: #6a6a8a; }
+        .controls select {
+            padding: 8px 12px;
+            background: #4a4a6a;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
     </style>
-  </head>
-  <body>
-    <div class="wrap">
-      <header>
-        <h1>NoriOS <span class="tag">Offline Archive</span></h1>
-        <p class="sub">云端世界运行时已替换为本地内存实现 · 断网也能进入 NoriOS 桌面</p>
-        <span class="pill">本页样式参考自 README.md 喵～</span>
-      </header>
-
-      <section>
-        <h2>介绍</h2>
-        <p>
-          这是 <a href="https://os.inori.ai/" target="_blank" rel="noopener">https://os.inori.ai/</a>
-          的公开前端资源离线归档。资源按原站路径保存在 <code>public/</code>，并将云端世界运行时替换为
-          本地内存实现，因此断网时仍可进入 NoriOS 桌面、查看 Nori Live2D、打开本地应用和使用本地素材。
-        </p>
-      </section>
-
-      <section>
-        <h2>启动</h2>
-        <p>环境要求：Node.js 18 或更高版本。无需 Python、npm 依赖或构建步骤。</p>
-        <pre><code><span class="cmt"># 启动服务</span>
-npm start</code></pre>
-        <p>然后打开 <code>http://127.0.0.1:4173</code>。Windows 也可以双击 <code>start.bat</code>。</p>
-        <p>端口被占用时可以换端口：</p>
-        <pre><code><span class="cmt"># 换端口启动</span>
-set PORT=4174
-npm start</code></pre>
-      </section>
-
-      <section>
-        <h2>已包含</h2>
-        <ul>
-          <li>NoriOS 桌面界面和本地化 Vite 分块</li>
-          <li>Nori / ARGNori Live2D 模型、动作、表情和纹理</li>
-          <li>桌面图标、游戏图片、音频、字体和 WebGL 素材</li>
-          <li>本地 SPA 回退和离线 CSP</li>
-          <li>无登录访客入口与本地内存世界状态</li>
-        </ul>
-      </section>
-
-      <section>
-        <h2>离线边界</h2>
-        <p class="muted">
-          原站的聊天回复、云端存档、多人联机和需要服务端制品的内容无法从公开前端资源中恢复；离线版本会用空状态或
-          本地占位响应继续显示界面。浏览器应用中原本指向外部网站的链接在断网时自然不可用。
-        </p>
-        <p class="muted">
-          这是对公开可访问前端资源的本地归档，不包含绕过登录、付费或其他访问控制的内容。
-        </p>
-      </section>
-
-      <footer>
-        由 run 小月帮主人做的 NoriOS 落地页喵～ (｡>ω<｡)
-      </footer>
-    </div>
-  </body>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div class="controls" id="controls"></div>
+    
+    <script src="live2dcubismcore.js"></script>
+    <script type="module">
+        import * as PIXI from 'https://cdn.jsdelivr.net/npm/pixi.js@7.3.2/lib/index.min.js';
+        
+        const MODEL_PATH = './ARGNori.model3.json';
+        
+        class Live2DViewer {
+            constructor(canvas, controlsContainer) {
+                this.canvas = canvas;
+                this.controlsContainer = controlsContainer;
+                this.app = new PIXI.Application({
+                    view: canvas,
+                    autoStart: true,
+                    resizeTo: window,
+                    transparent: true,
+                    backgroundColor: 0x1a1a2e
+                });
+                
+                this.container = new PIXI.Container();
+                this.app.stage.addChild(this.container);
+                
+                this.textures = [];
+                this.modelJson = null;
+                this.currentMotion = null;
+                this.currentExpression = null;
+                
+                this.loadModel();
+            }
+            
+            async loadModel() {
+                try {
+                    const response = await fetch(MODEL_PATH);
+                    this.modelJson = await response.json();
+                    
+                    console.log('Loading ARGNori Live2D model...');
+                    
+                    // Load all textures
+                    for (const texPath of this.modelJson.FileReferences.Textures) {
+                        const tex = await PIXI.Assets.load(texPath);
+                        this.textures.push(tex);
+                    }
+                    
+                    console.log(`Loaded ${this.textures.length} textures`);
+                    
+                    // Create sprite container with all textures
+                    this.setupSprites();
+                    
+                    // Setup UI controls
+                    this.setupControls();
+                    
+                    // Start idle animation
+                    this.startIdleAnimation();
+                    
+                } catch (error) {
+                    console.error('Failed to load model:', error);
+                }
+            }
+            
+            setupSprites() {
+                // Create sprites from textures arranged vertically for animation
+                this.sprites = [];
+                for (let i = 0; i < this.textures.length; i++) {
+                    const sprite = new PIXI.Sprite(this.textures[i]);
+                    sprite.anchor.set(0.5);
+                    sprite.scale.set(0.5);
+                    sprite.x = this.app.screen.width / 2;
+                    sprite.y = this.app.screen.height / 2 + i * 5;
+                    sprite.visible = i === 0;
+                    this.container.addChild(sprite);
+                    this.sprites.push(sprite);
+                }
+            }
+            
+            setupControls() {
+                const motions = this.modelJson.FileReferences.Motions || {};
+                const expressions = this.modelJson.FileReferences.Expressions || [];
+                
+                // Motion selector
+                const motionSelect = document.createElement('select');
+                motionSelect.innerHTML = '<option value="">-- Select Motion --</option>';
+                
+                for (const [group, motionList] of Object.entries(motions)) {
+                    motionList.forEach((m, idx) => {
+                        const opt = document.createElement('option');
+                        opt.value = JSON.stringify({ group, index: idx });
+                        opt.textContent = `${group}: ${m.File.split('/').pop()}`;
+                        motionSelect.appendChild(opt);
+                    });
+                }
+                
+                motionSelect.addEventListener('change', (e) => {
+                    if (e.target.value) {
+                        const { group, index } = JSON.parse(e.target.value);
+                        this.playMotion(group, index);
+                    }
+                });
+                
+                // Expression selector
+                const exprSelect = document.createElement('select');
+                exprSelect.innerHTML = '<option value="">-- Select Expression --</option>';
+                expressions.forEach((exp, idx) => {
+                    const opt = document.createElement('option');
+                    opt.value = idx;
+                    opt.textContent = exp.Name;
+                    exprSelect.appendChild(opt);
+                });
+                
+                exprSelect.addEventListener('change', (e) => {
+                    if (e.target.value !== '') {
+                        this.applyExpression(parseInt(e.target.value));
+                    }
+                });
+                
+                this.controlsContainer.appendChild(motionSelect);
+                this.controlsContainer.appendChild(exprSelect);
+            }
+            
+            startIdleAnimation() {
+                let frame = 0;
+                const animate = () => {
+                    frame++;
+                    // Simple breathing animation
+                    const scale = 1 + Math.sin(frame * 0.05) * 0.02;
+                    this.sprites.forEach(s => {
+                        s.scale.set(0.5 * scale);
+                    });
+                    requestAnimationFrame(animate);
+                };
+                animate();
+            }
+            
+            async playMotion(group, index) {
+                const motionData = this.modelJson.FileReferences.Motions[group][index];
+                console.log(`Playing motion: ${motionData.File}`);
+                
+                try {
+                    const response = await fetch(motionData.File);
+                    const motionJson = await response.json();
+                    console.log('Motion loaded:', motionJson.Meta);
+                    // In a full implementation, this would animate the model parameters
+                } catch (error) {
+                    console.error('Failed to load motion:', error);
+                }
+            }
+            
+            async applyExpression(index) {
+                const exprData = this.modelJson.FileReferences.Expressions[index];
+                console.log(`Applying expression: ${exprData.Name}`);
+                
+                try {
+                    const response = await fetch(exprData.File);
+                    const expJson = await response.json();
+                    console.log('Expression loaded:', expJson);
+                } catch (error) {
+                    console.error('Failed to load expression:', error);
+                }
+            }
+            
+            resize() {
+                this.app.resize();
+                this.sprites.forEach(s => {
+                    s.x = this.app.screen.width / 2;
+                    s.y = this.app.screen.height / 2;
+                });
+            }
+        }
+        
+        // Initialize viewer
+        const canvas = document.getElementById('canvas');
+        const controls = document.getElementById('controls');
+        const viewer = new Live2DViewer(canvas, controls);
+        
+        window.addEventListener('resize', () => viewer.resize());
+    </script>
+</body>
 </html>
