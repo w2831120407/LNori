@@ -2,7 +2,7 @@
   "name": "nori-os-offline",
   "version": "1.0.0",
   "private": true,
-  "description": "NoriOS offline archive + local backend for the public NoriOS web client",
+  "description": "NoriOS offline archive + local backend for the public NoriOS web client (Pure HTML5 with Cordis)",
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
@@ -15,7 +15,5 @@
     "node": ">=18"
   },
   "packageManager": "pnpm@11.24.0",
-  "dependencies": {
-    "astro": "^7.2.6"
-  }
+  "dependencies": {}
 }

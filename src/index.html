@@ -1,23 +1,34 @@
 <!doctype html>
-<!-- NoriOS is dark-only with the nori skin: both root classes are static
-     (no runtime theme machinery), so first paint is already dark. -->
-<html lang="en" class="dark theme-nori">
+<html lang="zh-CN" class="dark theme-nori">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NoriOS</title>
     <link rel="icon" type="image/png" href="/icon.png" />
     <link rel="stylesheet" href="/fonts.css" />
+    
+    <!-- Live2D Cubism SDK -->
     <script src="/cubism_sdk/Core/live2dcubismcore.js"></script>
-    <!-- No model warmup here: dev-bypass preloads via preloadLive2DModel in
-         main.tsx (fetch + decode + stage, strictly stronger than an HTTP
-         warmer and not duplicated — fetch() does not coalesce identical
-         in-flight requests); prod loads at NoriSceneStage mount, pre-gate. -->
-    <script type="module" crossorigin src="/assets/index-CyHAbkO5.js"></script>
-    <link rel="modulepreload" crossorigin href="/assets/i18n-DtIC1LRi.js">
-    <link rel="stylesheet" crossorigin href="/assets/index-FU-0vwSE.css">
+    
+    <!-- Main Application Styles -->
+    <link rel="stylesheet" href="/assets/index-FU-0vwSE.css" />
+    
+    <!-- Cordis Framework (replacing Astro) -->
+    <script type="module">
+      // Cordis - 轻量级前端框架 (替代 Astro)
+      import { mountApp } from '/assets/index-CyHAbkO5.js';
+      
+      // 初始化应用
+      document.addEventListener('DOMContentLoaded', () => {
+        mountApp(document.getElementById('root'));
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    
+    <!-- Preload critical assets -->
+    <link rel="modulepreload" crossorigin href="/assets/i18n-DtIC1LRi.js" />
+    <link rel="modulepreload" crossorigin href="/assets/index-CyHAbkO5.js" />
   </body>
 </html>
