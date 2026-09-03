@@ -74,31 +74,20 @@ public class MainActivity extends Activity {
         FrameLayout rootFrame = null;
         View anchorRed = null;
         try {
-            // ===== 1. 300ms内先刷白Window+DecorView =====
-            android.graphics.drawable.ColorDrawable whiteDrawable = new android.graphics.drawable.ColorDrawable(Color.WHITE);
-            getWindow().setBackgroundDrawable(whiteDrawable);
-            getWindow().getDecorView().setBackgroundColor(Color.WHITE);
-            // ===== 2. FrameLayout根容器(绝对白) =====
-            rootFrame = new FrameLayout(this);
-            rootFrame.setBackgroundColor(Color.WHITE);
-            rootFrame.setLayoutParams(new FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
-            // ===== 3. 🔴 120x120 红色锚点View(左上角) → 主人看到这个=Activity确实渲染了 =====
-            anchorRed = new View(this);
-            anchorRed.setBackgroundColor(0xFFFF4444);
-            FrameLayout.LayoutParams ap = new FrameLayout.LayoutParams(120, 120);
-            ap.leftMargin = 40; ap.topMargin = 40;
-            anchorRed.setLayoutParams(ap);
-            anchorRed.setAlpha(0.9f);
-            rootFrame.addView(anchorRed);
-            // ===== ⭐ 立刻setContentView！(防黑里程碑！无论后面崩不崩，这里已经有白+红了！) =====
-            setContentView(rootFrame);
-            Log.i(TAG, "🛡️【v1.0.4终极防黑】白底+🔴锚点已setContentView ✓ 100%不会纯黑");
-
-            // ---- 一加 ACE5 / ColorOS 16 视觉适配 ----
+            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            // ⚠️ ANDROID 16 强制要求：【requestFeature/Window FLAGS/SystemUi/刘海屏】
+            //     必须 100% 放在 setContentView() 之前！！！
+            //     否则必死：AndroidRuntimeException: requestFeature() must be called before adding content
+            //     (v1.0.4 崩溃就是第99行 requestWindowFeature 写在 setContentView 后面！)
+            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            // ---- ① Feature + Window 基础属性 (最最最前) ----
             requestWindowFeature(Window.FEATURE_NO_TITLE);
-            getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
-            getWindow().addFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
+            getWindow().setFlags(
+                    WindowManager.LayoutParams.FLAG_FULLSCREEN |
+                    WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+                    WindowManager.LayoutParams.FLAG_FULLSCREEN |
+                    WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
+            // ---- ② 沉浸式 + 挖孔屏适配(ColorOS 16 全屏必须) ----
             getWindow().getDecorView().setSystemUiVisibility(
                     View.SYSTEM_UI_FLAG_LAYOUT_STABLE
                             | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
@@ -107,9 +96,32 @@ public class MainActivity extends Activity {
                             | View.SYSTEM_UI_FLAG_FULLSCREEN
                             | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                getWindow().getAttributes().layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+                getWindow().getAttributes().layoutInDisplayCutoutMode =
+                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) getWindow().setPreferMinimalPostProcessing(true);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                getWindow().setPreferMinimalPostProcessing(true);
+            }
+            // ---- ③ 300ms内先刷白Window+DecorView ----
+            android.graphics.drawable.ColorDrawable whiteDrawable = new android.graphics.drawable.ColorDrawable(Color.WHITE);
+            getWindow().setBackgroundDrawable(whiteDrawable);
+            getWindow().getDecorView().setBackgroundColor(Color.WHITE);
+            // ---- ④ FrameLayout根容器(绝对白) ----
+            rootFrame = new FrameLayout(this);
+            rootFrame.setBackgroundColor(Color.WHITE);
+            rootFrame.setLayoutParams(new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+            // ---- ⑤ 🔴 120x120 红色锚点View(左上角) → 主人看到这个=Activity确实渲染了 ----
+            anchorRed = new View(this);
+            anchorRed.setBackgroundColor(0xFFFF4444);
+            FrameLayout.LayoutParams ap = new FrameLayout.LayoutParams(120, 120);
+            ap.leftMargin = 40; ap.topMargin = 40;
+            anchorRed.setLayoutParams(ap);
+            anchorRed.setAlpha(0.9f);
+            rootFrame.addView(anchorRed);
+            // ===== ⭐ 最后！setContentView！(Window/Feature设置完才能调用！！) =====
+            setContentView(rootFrame);
+            Log.i(TAG, "🛡️【v1.0.6崩溃修复】requestWindowFeature已前移→setContentView ✓ 顺序正确(Android16不死)");
 
             // ===== 4. WebView初始化（填满父Frame）=====
             webView = new WebView(this);

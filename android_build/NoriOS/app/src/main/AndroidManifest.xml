@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.norios.app"
-    android:versionCode="105"
-    android:versionName="1.0.5"
+    android:versionCode="106"
+    android:versionName="1.0.6"
     android:installLocation="auto">
 
     <!-- SDK 版本：目标 36 (ColorOS 16 / Android 16)，最低 26 (Android 8.0) -->
