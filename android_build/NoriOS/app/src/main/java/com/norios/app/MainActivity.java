@@ -260,7 +260,15 @@ public class MainActivity extends Activity {
         sb.append("</p>");
         sb.append("<p><small style=color:#888>NoriOS v1.0.3 小月修复版 · 一加ACE5至尊版/ColorOS 16专用 · 永久密钥存 keystores_permanent/release_v102.jks</small></p>");
         if (!http200) {
-            sb.append("<script>var sec=").append(countdownSec).append(";var timer=null;var box=document.getElementById('cd');function tick(){sec--;if(sec<=0){document.getElementById('cdBox').innerHTML='⏳ 已切换file备用加载，若白屏请点上方蓝色「尝试file加载」或绿色HTTP加载';return;}box.textContent=sec;timer=setTimeout(tick,1000);}function stopCd(){clearTimeout(timer);document.getElementById('cdBox').innerHTML='✅ 自动跳转已取消，请自由截图/点按钮～';}function startCd(){clearTimeout(timer);sec=").append(countdownSec).append(";box.textContent=sec;document.getElementById('cdBox').innerHTML='⏰ 自动切换倒计时：<b id=cd>').concat(String.valueOf(countdownSec)).concat("</b>秒（点「取消自动跳转」停止）';box=document.getElementById('cd');tick();}tick();</script>");
+            sb.append("<script>var sec=").append(countdownSec)
+              .append(";var timer=null;var box=document.getElementById('cd');")
+              .append("function tick(){sec--;if(sec<=0){document.getElementById('cdBox').innerHTML='⏳ 已切换file备用加载，若白屏请点上方蓝色「尝试file加载」或绿色HTTP加载';return;}")
+              .append("box.textContent=sec;timer=setTimeout(tick,1000);}")
+              .append("function stopCd(){clearTimeout(timer);document.getElementById('cdBox').innerHTML='✅ 自动跳转已取消，请自由截图/点按钮～';}")
+              .append("function startCd(){clearTimeout(timer);sec=").append(countdownSec).append(";box.textContent=sec;")
+              .append("document.getElementById('cdBox').innerHTML='⏰ 自动切换倒计时：<b id=cd>").append(countdownSec).append("</b>秒（点「取消自动跳转」停止）';")
+              .append("box=document.getElementById('cd');tick();}tick();")
+              .append("</script>");
         }
         sb.append("</body></html>");
         webView.loadDataWithBaseURL("file:///android_asset/", sb.toString(), "text/html; charset=utf-8", "UTF-8", null);
