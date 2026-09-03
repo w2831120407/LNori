@@ -48,35 +48,9 @@ for f in $(find "$BUILD_DIR/compiled_res" -name "*.flat" | sort); do
 done
 
 # ============================================================
-
-# ======= 动态 Web 资源准备（资源直接从仓库根 src/ 复制，避免 Git 仓库冗余） =======
-echo "   📥 准备 NoriOS Web 资源 (从仓库根 src/ 复制到临时 assets/www)... 喵"
-REPO_ROOT="$(cd "$PROJECT_DIR/../.." \&\& pwd)"
-if [ ! -d "$REPO_ROOT/src" ]; then
-  # 兼容独立 android_build/ 目录直接运行的情况
-  REPO_ROOT="$(cd "$PROJECT_DIR/.." \&\& pwd)"
-fi
-if [ -d "$REPO_ROOT/src" ]; then
-  mkdir -p "$APP_DIR/assets"
-  rm -rf "$APP_DIR/assets/www"
-  cp -r "$REPO_ROOT/src" "$APP_DIR/assets/www"
-  N="$(find "$APP_DIR/assets/www" -type f | wc -l)"
-  echo "   → 从 $REPO_ROOT/src 复制了 $N 个资源到 assets/www"
-else
-  echo "   ⚠️  未发现 src/ 目录，期望在 $REPO_ROOT/src 下有原始 Web 资源"
-  exit 1
-fi
-
 # 2. aapt2 link：链接资源 + 生成R.java + 产出基础APK
 # ============================================================
 echo ""
-echo "   📥 从仓库根 src/ 复制Web资源到 assets/www (动态准备，不入库)... 喵"
-mkdir -p "$APP_DIR/assets"
-rm -rf "$APP_DIR/assets/www"
-REPO_ROOT="$(cd "$PROJECT_DIR/../.." && pwd)"
-if [ -d "$REPO_ROOT/src" ]; then cp -r "$REPO_ROOT/src" "$APP_DIR/assets/www"; else echo "   ⚠️ 未找到$REPO_ROOT/src，使用PROJECT_DIR上级src" && cp -r "$(dirname $(dirname $PROJECT_DIR))/src" "$APP_DIR/assets/www"; fi
-WEB_COUNT=$(find "$APP_DIR/assets/www" -type f | wc -l)
-echo "   → 已复制 $WEB_COUNT 个 Web 资源用于本次打包"
 echo "🔗 [2/7] 链接资源 + R.java (aapt2 link)..."
 "$AAPT2" link \
     -o "$BUILD_DIR/output/norios-base.apk" \

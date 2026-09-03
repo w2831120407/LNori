@@ -24,6 +24,8 @@ import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebStorage;
+import android.net.http.SslError;
+import android.webkit.SslErrorHandler;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
@@ -48,6 +50,7 @@ public class MainActivity extends Activity {
     private static final int PERMISSION_REQUEST_CODE = 100;
 
     private WebView webView;
+    private LocalAssetServer assetServer;   // 内嵌静态 HTTP 服务器
     private ValueCallback<Uri[]> filePathCallback;
     private String cameraPhotoPath;
 
@@ -88,9 +91,24 @@ public class MainActivity extends Activity {
         webView.setFadingEdgeLength(0);
         setContentView(webView);
 
+        // ---- 启动内嵌静态 HTTP 服务器 (解决file://下绝对路径 /xxx 找不到导致白屏的问题) ----
+        try {
+            assetServer = new LocalAssetServer(getAssets(), "www", LocalAssetServer.DEFAULT_PORT);
+            assetServer.start();
+        } catch (IOException e) {
+            Log.e(TAG, "❌ LocalAssetServer 启动失败喵！尝试 fallback 到 file:// 加载", e);
+            assetServer = null;
+        }
+
         setupWebView();
         requestNeededPermissions();
-        webView.loadUrl("file:///android_asset/www/index.html");
+
+        // 使用本地 HTTP 服务器加载 → 语义等价于原 Node.js 服务器，绝对路径 /xxx 正常工作 ✅
+        String entryUrl = (assetServer != null)
+                ? assetServer.getBaseUrl() + "index.html"
+                : "file:///android_asset/www/index.html";
+        Log.i(TAG, "🌐 WebView.loadUrl: " + entryUrl);
+        webView.loadUrl(entryUrl);
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -121,7 +139,8 @@ public class MainActivity extends Activity {
         settings.setTextZoom(100);
 
         if (Build.VERSION.SDK_INT >= 21) {
-            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
+            // 宽松混合内容策略：本地 HTTP + 外部 HTTPS 资源均可混用
+            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
             settings.setOffscreenPreRaster(true);
         }
         if (Build.VERSION.SDK_INT >= 19) {
@@ -140,27 +159,39 @@ public class MainActivity extends Activity {
             webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         }
 
-        // WebViewClient：URL 路由
+        // WebViewClient：URL 路由 + SSL 容错 + 错误日志
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
                 String scheme = uri.getScheme();
-                if ("file".equals(scheme) || "data".equals(scheme) || "blob".equals(scheme)) {
-                    return false;
-                }
+                // 本地服务器 / 文件 / data/blob → 交给 WebView 自己处理
+                if ("file".equals(scheme) || "data".equals(scheme) || "blob".equals(scheme)) return false;
+                if ("http".equals(scheme) && "127.0.0.1".equals(uri.getHost())) return false;
                 view.loadUrl(uri.toString());
                 return true;
+            }
+
+            // 本地 HTTP/HTTPS 场景全部放行 SSL（ColorOS 16 可能对自签名/本地SSL卡得严）
+            @Override
+            @SuppressWarnings("deprecation")
+            public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+                handler.proceed();
             }
 
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
+                Log.i(TAG, "✅ onPageFinished: " + url);
             }
 
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 super.onReceivedError(view, request, error);
+                if (Build.VERSION.SDK_INT >= 23) {
+                    Log.e(TAG, "❌ WebResourceError: " + error.getDescription()
+                            + " (code=" + error.getErrorCode() + ") url=" + request.getUrl());
+                }
             }
         });
 
@@ -323,11 +354,16 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        // 先关 WebView，再关 HTTP 服务器（防止 WebView 请求途中被断）
         if (webView != null) {
             webView.stopLoading();
             webView.removeAllViews();
             webView.destroy();
             webView = null;
+        }
+        if (assetServer != null) {
+            assetServer.stop();
+            assetServer = null;
         }
         super.onDestroy();
     }
