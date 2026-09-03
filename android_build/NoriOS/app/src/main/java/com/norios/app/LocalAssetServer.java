@@ -139,25 +139,29 @@ public class LocalAssetServer {
     }
 
     /* -------- 处理单客户端 -------- */
+    @SuppressLint("DefaultLocale")
     private void handleClient(Socket client) {
         try (InputStream in = client.getInputStream();
              OutputStream out = client.getOutputStream()) {
+            client.setSoTimeout(10_000); // 10秒操作超时(防止挂起导致空白)
 
-            // 1) 读取 Request Line (第一行)
-            String requestLine = readLine(in);
-            if (requestLine == null || requestLine.isEmpty()) return;
+            // 1) 读取 Request Line (第一行，带失败响应兜底)
+            String requestLine = readLine(in, 8192);
+            if (requestLine == null || requestLine.isEmpty()) { sendBadRequest(out, "Empty Request Line"); return; }
             String[] parts = requestLine.split(" ");
-            if (parts.length < 2) return;
+            if (parts.length < 2) { sendBadRequest(out, "Invalid Request: " + requestLine); return; }
             String method = parts[0];
             String rawPath = parts[1];
 
-            // 2) 跳过 headers，直至空行
+            // 2) 跳过 headers，直至空行（加100行限制防止无限循环）
             String line;
             long rangeStart = -1, rangeEnd = -1;
             String ifModifiedSince = null;
-            while (true) {
-                line = readLine(in);
-                if (line == null || line.isEmpty()) break;
+            int headerLines = 0;
+            while (headerLines++ < 512) {
+                line = readLine(in, 8192);
+                if (line == null) break;
+                if (line.isEmpty()) break;
                 String lower = line.toLowerCase(Locale.US);
                 if (lower.startsWith("range:")) {
                     int eq = lower.indexOf('=');
@@ -171,7 +175,7 @@ public class LocalAssetServer {
                                 if (!endStr.isEmpty()) rangeEnd = Long.parseLong(endStr);
                             } else if (dash == 0 && v.length() > 1) {
                                 rangeEnd = Long.parseLong(v.substring(1));
-                            } else {
+                            } else if (dash < 0) {
                                 rangeStart = Long.parseLong(v);
                             }
                         } catch (NumberFormatException ignored) {}
@@ -185,17 +189,17 @@ public class LocalAssetServer {
             String path = normalizePath(rawPath.split("\\?")[0].split("#")[0]);
             if ("/".equals(path)) path = "/index.html";
 
-            // 4) 尝试打开 assets
+            // 4) 尝试打开 assets (全链路try/catch，不允许静默崩溃)
             String assetPath = assetRoot + path;
             String mimeType = guessMime(path);
             long assetLength;
             try {
                 assetLength = openAssetLength(assetPath);
             } catch (IOException e) {
-                // 没有 /index.html 但请求了根目录下的 SPA 路径 → 回退到 /index.html (前端路由)
-                if (!path.equals("/index.html") && !path.toLowerCase().contains(".")) {
+                // SPA 路由回退 (没有扩展名的路径→回退index.html)
+                if (!path.equals("/index.html") && !path.toLowerCase(Locale.US).contains(".")) {
                     assetPath = assetRoot + "/index.html";
-                    mimeType = "text/html";
+                    mimeType = "text/html; charset=utf-8";
                     try { assetLength = openAssetLength(assetPath); }
                     catch (IOException e2) { send404(out, path); return; }
                 } else {
@@ -204,8 +208,14 @@ public class LocalAssetServer {
                 }
             }
 
-            // 5) 写 HTTP Response
-            InputStream contentStream = assetManager.open(assetPath);
+            // 5) 打开 contentStream (带fail-fast try/catch)
+            InputStream contentStream;
+            try {
+                contentStream = assetManager.open(assetPath);
+            } catch (IOException openErr) {
+                sendInternalError(out, "open(" + assetPath + ") failed: " + openErr.getMessage());
+                return;
+            }
             boolean partial = (rangeStart >= 0);
             long contentLength;
 
@@ -213,7 +223,6 @@ public class LocalAssetServer {
                 if (rangeEnd < 0 || rangeEnd >= assetLength) rangeEnd = assetLength - 1;
                 if (rangeStart >= assetLength) { send416(out, assetLength); contentStream.close(); return; }
                 contentLength = rangeEnd - rangeStart + 1;
-                // 跳过 rangeStart 字节
                 long skipped = 0;
                 while (skipped < rangeStart) {
                     long s = contentStream.skip(rangeStart - skipped);
@@ -235,29 +244,68 @@ public class LocalAssetServer {
             writeLine(out, "Date: " + date);
             writeLine(out, "Last-Modified: " + date);
             writeLine(out, "Access-Control-Allow-Origin: *");
+            writeLine(out, "Access-Control-Allow-Methods: GET, HEAD, OPTIONS");
+            writeLine(out, "Cross-Origin-Opener-Policy: same-origin");
+            writeLine(out, "Cross-Origin-Embedder-Policy: require-corp");
             writeLine(out, "Connection: close");
             writeLine(out, "");
             out.flush();
 
-            // 6) Send body
-            if ("HEAD".equalsIgnoreCase(method)) {
+            // 6) Send body (HEAD方法不发body；其它方法强校验写入字节=contentLength，防止浏览器一直等导致空白)
+            long written = 0;
+            try {
+                if (!"HEAD".equalsIgnoreCase(method) && !"OPTIONS".equalsIgnoreCase(method)) {
+                    written = pipe(contentStream, out, contentLength);
+                }
+            } finally {
                 contentStream.close();
-                return;
+                out.flush();
             }
-            pipe(contentStream, out, contentLength);
-            contentStream.close();
-            out.flush();
-
-            if (BuildConfig.DEBUG || Log.isLoggable(TAG, Log.VERBOSE)) {
-                Log.d(TAG, method + " " + rawPath + " → "
-                        + (partial ? "206 " : "200 ") + mimeType + " (" + contentLength + " B)");
+            if (written != contentLength && !"HEAD".equalsIgnoreCase(method)) {
+                Log.w(TAG, String.format("⚠️ 响应写入字节不匹配(浏览器空白的根因!) 期望=%d 实际=%d path=%s",
+                        contentLength, written, assetPath));
+                try { client.shutdownOutput(); } catch (Throwable ignored) {}
+            } else {
+                Log.v(TAG, String.format("✅ %s %s → %s %dB CT=%s",
+                        method, rawPath,
+                        (partial ? "206" : "200"),
+                        contentLength, mimeType));
             }
-
         } catch (Throwable t) {
-            Log.w(TAG, "handleClient failed: " + t.getMessage(), t);
+            // handleClient任何异常 → 至少打Log + 尝试发500
+            Log.e(TAG, "💥 handleClient异常(可能造成浏览器空白): " + t.getMessage(), t);
+            try {
+                OutputStream out = client.getOutputStream();
+                sendInternalError(out, t.getClass().getSimpleName() + ": " + t.getMessage());
+            } catch (Throwable ignored) {}
         } finally {
             try { client.close(); } catch (IOException ignored) {}
         }
+    }
+
+    /* ---- HTTP 错误响应 (v1.0.5: 保证服务器任何时候都发响应，不让浏览器空白) ---- */
+    private static void sendBadRequest(OutputStream out, String why) throws IOException {
+        sendErrorBody(out, "HTTP/1.1 400 Bad Request", "400 Bad Request", why);
+    }
+    private static void sendInternalError(OutputStream out, String why) throws IOException {
+        sendErrorBody(out, "HTTP/1.1 500 Internal Server Error", "500 Internal Server Error", why);
+    }
+    private static void sendErrorBody(OutputStream out, String statusLine, String title, String why) throws IOException {
+        StringBuilder sb = new StringBuilder();
+        sb.append("<!doctype html><html><head><meta charset=utf-8><title>").append(title).append("</title></head>")
+          .append("<body style=\"font-family:sans-serif;padding:20px;background:#fff;color:#333\">")
+          .append("<h1 style=\"color:#d32f2f\">").append(title).append("</h1>")
+          .append("<p>NoriOS LocalAssetServer (v1.0.5+)</p>")
+          .append("<pre style=\"background:#fafafa;border:1px solid #eee;padding:10px;border-radius:6px\">")
+          .append(why == null ? "" : why).append("</pre></body></html>");
+        byte[] data = sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        writeLine(out, statusLine);
+        writeLine(out, "Content-Type: text/html; charset=utf-8");
+        writeLine(out, "Content-Length: " + data.length);
+        writeLine(out, "Connection: close");
+        writeLine(out, "");
+        out.write(data);
+        out.flush();
     }
 
     /* -------- helpers -------- */
@@ -282,7 +330,8 @@ public class LocalAssetServer {
         }
     }
 
-    private static String readLine(InputStream in) throws IOException {
+    /** v1.0.5+: 带最大字符数限制的readLine，防止恶意请求溢出 / 真实浏览器超长headers卡住 */
+    private static String readLine(InputStream in, int maxBytes) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream(128);
         int b;
         boolean crSeen = false;
@@ -290,9 +339,14 @@ public class LocalAssetServer {
             if (b == '\r') { crSeen = true; continue; }
             if (b == '\n') return baos.toString("UTF-8");
             baos.write(b);
-            if (baos.size() > 4096) { break; } // prevent overflow
+            if (baos.size() > maxBytes) { break; }
         }
         return baos.size() == 0 ? null : baos.toString("UTF-8");
+    }
+
+    /** 兼容旧单参数调用 */
+    private static String readLine(InputStream in) throws IOException {
+        return readLine(in, 4096);
     }
 
     private static void writeLine(OutputStream out, String s) throws IOException {
@@ -315,11 +369,11 @@ public class LocalAssetServer {
         return path;
     }
 
+    /** v1.0.5: 白名单优先(JS/MJS/CSS关键Web MIME绝不误判) → 系统URLConnection仅做最后兜底
+     *  之前是反过来(先系统再白名单)，导致Android系统误判.js返回application/octet-stream → ES Module脚本被WebView严格拒绝 → 空白页！ */
     private static String guessMime(String path) {
         path = path.toLowerCase(Locale.US);
-        String mime = URLConnection.guessContentTypeFromName(path);
-        if (mime != null && !mime.isEmpty()) return mime;
-        // manual fallback for web-related types
+        // --- 1) 白名单 (最高优先级 最严格 匹配正确) ---
         if (path.endsWith(".html")) return "text/html; charset=utf-8";
         if (path.endsWith(".htm"))  return "text/html; charset=utf-8";
         if (path.endsWith(".css"))  return "text/css; charset=utf-8";
@@ -327,17 +381,29 @@ public class LocalAssetServer {
         if (path.endsWith(".mjs"))  return "application/javascript; charset=utf-8";
         if (path.endsWith(".json")) return "application/json; charset=utf-8";
         if (path.endsWith(".svg"))  return "image/svg+xml";
+        if (path.endsWith(".png"))  return "image/png";
+        if (path.endsWith(".jpg")||path.endsWith(".jpeg")) return "image/jpeg";
+        if (path.endsWith(".gif"))  return "image/gif";
+        if (path.endsWith(".ico"))  return "image/x-icon";
+        if (path.endsWith(".webp")) return "image/webp";
         if (path.endsWith(".woff")) return "font/woff";
         if (path.endsWith(".woff2"))return "font/woff2";
         if (path.endsWith(".ttf"))  return "font/ttf";
-        if (path.endsWith(".m4a"))  return "audio/mp4";
+        if (path.endsWith(".otf"))  return "font/otf";
+        if (path.endsWith(".m4a")||path.endsWith(".aac")) return "audio/mp4";
         if (path.endsWith(".wav"))  return "audio/wav";
         if (path.endsWith(".mp3"))  return "audio/mpeg";
-        if (path.endsWith(".webp")) return "image/webp";
+        if (path.endsWith(".webm")||path.endsWith(".mp4")) return "video/webm";
         if (path.endsWith(".wasm")) return "application/wasm";
-        if (path.endsWith(".moc3")) return "application/octet-stream";
+        if (path.endsWith(".moc3")||path.endsWith(".cdi3.json")||path.endsWith(".model3.json")||path.endsWith(".physics3.json")) return "application/octet-stream";
         if (path.endsWith(".md"))   return "text/markdown; charset=utf-8";
         if (path.endsWith(".txt"))  return "text/plain; charset=utf-8";
+        // --- 2) 系统 URLConnection 兜底 ---
+        try {
+            String mime = URLConnection.guessContentTypeFromName(path);
+            if (mime != null && !mime.isEmpty()) return mime;
+        } catch (Throwable ignored) {}
+        // --- 3) 最终兜底 ---
         return "application/octet-stream";
     }
 

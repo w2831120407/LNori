@@ -50,6 +50,22 @@ done
 # ============================================================
 # 2. aapt2 link：链接资源 + 生成R.java + 产出基础APK
 # ============================================================
+# ============================================================
+# 🐞 BUGFIX v1.0.5: 【动态复制Web源码→APK assets/www】 关键修复！
+# 之前build_apk.sh完全缺失此步骤导致APK里assets/www永远是旧残缺/空内容！
+# 每次构建必须用 /workspace/src 目录（Node服务器真实serve的目录, server.mjs line6）覆盖复制
+# ============================================================
+WEB_SRC_DIR="/workspace/src"
+ASSETS_WWW_DIR="$APP_DIR/assets/www"
+echo ""
+echo "🔄 BUGFIX v1.0.5: 动态复制最新Web源码 → APK assets/www (src/真实Serving目录)"
+echo "   源: $WEB_SRC_DIR ($(find "$WEB_SRC_DIR" -type f 2>/dev/null | wc -l) 个文件)"
+rm -rf "$ASSETS_WWW_DIR"
+mkdir -p "$ASSETS_WWW_DIR"
+cp -r "$WEB_SRC_DIR"/. "$ASSETS_WWW_DIR"/
+chmod -R u+rwX "$ASSETS_WWW_DIR"
+echo "   完成 → $ASSETS_WWW_DIR ($(find "$ASSETS_WWW_DIR" -type f | wc -l) 个文件)"
+echo ""
 echo ""
 echo "🔗 [2/7] 链接资源 + R.java (aapt2 link)..."
 "$AAPT2" link \
