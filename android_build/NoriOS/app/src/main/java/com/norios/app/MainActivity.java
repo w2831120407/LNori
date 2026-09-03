@@ -14,8 +14,14 @@ import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.graphics.Color;
+import android.view.Gravity;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
+import android.widget.Toast;
 import android.webkit.ConsoleMessage;
 import android.webkit.GeolocationPermissions;
 import android.webkit.PermissionRequest;
@@ -58,89 +64,223 @@ public class MainActivity extends Activity {
     @SuppressLint({"SetJavaScriptEnabled", "NewApi"})
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // BUGFIX v1.0.4 终极防黑 & 崩溃兜底：
+        //   ① 立刻刷白Window+FrameLayout根容器+红色锚点方块(100%可见) → 任何后续崩溃都不再黑屏！
+        //   ② 整个onCreate包 try/catch(Throwable) → 任何崩溃都走原生白面板+Toast提示
+        //   ③ 加载成功后自动移除红色锚点(不然挡住UI)
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         super.onCreate(savedInstanceState);
-
-        // ---- 一加 ACE5 至尊版 / ColorOS 16 视觉适配 ----
-        requestWindowFeature(Window.FEATURE_NO_TITLE);
-        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
-                WindowManager.LayoutParams.FLAG_FULLSCREEN);
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
-        getWindow().getDecorView().setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                        | View.SYSTEM_UI_FLAG_FULLSCREEN
-                        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
-
-        // 挖孔屏适配 (API 28+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            getWindow().getAttributes().layoutInDisplayCutoutMode =
-                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
-        }
-        // 高画质 + 低延迟（骁龙8至尊版性能释放）
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            getWindow().setPreferMinimalPostProcessing(true);
-        }
-
-        webView = new WebView(this);
-        webView.setScrollBarStyle(View.SCROLLBARS_INSIDE_OVERLAY);
-        webView.setScrollContainer(false);
-        webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        webView.setVerticalScrollBarEnabled(false);
-        webView.setHorizontalScrollBarEnabled(false);
-        webView.setFadingEdgeLength(0);
-        // --- BUGFIX v1.0.2: 防黑屏！强制白底，主题暗色模式下默认黑背景会透出导致全黑 ---
-        getWindow().setBackgroundDrawableResource(android.R.color.white);
-        webView.setBackgroundColor(Color.WHITE);
-        setContentView(webView);
-
-        // ---- 启动内嵌静态 HTTP 服务器 (解决file://下绝对路径 /xxx 找不到导致白屏的问题) ----
-        final Exception[] startErrHolder = new Exception[1];
+        FrameLayout rootFrame = null;
+        View anchorRed = null;
         try {
-            assetServer = new LocalAssetServer(getAssets(), "www", LocalAssetServer.DEFAULT_PORT);
-            assetServer.start();
-        } catch (IOException e) {
-            startErrHolder[0] = e;
-            Log.e(TAG, "❌ LocalAssetServer 启动异常", e);
-            assetServer = null;
-        }
+            // ===== 1. 300ms内先刷白Window+DecorView =====
+            android.graphics.drawable.ColorDrawable whiteDrawable = new android.graphics.drawable.ColorDrawable(Color.WHITE);
+            getWindow().setBackgroundDrawable(whiteDrawable);
+            getWindow().getDecorView().setBackgroundColor(Color.WHITE);
+            // ===== 2. FrameLayout根容器(绝对白) =====
+            rootFrame = new FrameLayout(this);
+            rootFrame.setBackgroundColor(Color.WHITE);
+            rootFrame.setLayoutParams(new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+            // ===== 3. 🔴 120x120 红色锚点View(左上角) → 主人看到这个=Activity确实渲染了 =====
+            anchorRed = new View(this);
+            anchorRed.setBackgroundColor(0xFFFF4444);
+            FrameLayout.LayoutParams ap = new FrameLayout.LayoutParams(120, 120);
+            ap.leftMargin = 40; ap.topMargin = 40;
+            anchorRed.setLayoutParams(ap);
+            anchorRed.setAlpha(0.9f);
+            rootFrame.addView(anchorRed);
+            // ===== ⭐ 立刻setContentView！(防黑里程碑！无论后面崩不崩，这里已经有白+红了！) =====
+            setContentView(rootFrame);
+            Log.i(TAG, "🛡️【v1.0.4终极防黑】白底+🔴锚点已setContentView ✓ 100%不会纯黑");
 
-        setupWebView();
-        requestNeededPermissions();
-
-        // ---- BUGFIX v1.0.2: 先显示 Loading 占位页（绝对不会黑屏！），再后台跑 HTTP 自测（必须异步：避免NetworkOnMainThreadException） ----
-        showLoadingPlaceholder();
-        final LocalAssetServer serverFinal = assetServer;
-        new Thread("NoriSelfTest") {
-            @Override public void run() {
-                android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);
-                boolean ok = false;
-                String info = "";
-                Exception testErr = null;
-                if (serverFinal != null) {
-                    try {
-                        String u = serverFinal.getBaseUrl() + "index.html";
-                        Object[] r = selfTestHttpServer(u, 8000);
-                        int code = (int) r[0]; long len = (long) r[1];
-                        // BUGFIX v1.0.3: index.html 实际大小只有约1136B（骨架，主体在index-xxx.js里），
-                        // 所以 len > 5000 的判断过于严苛，会误判为FAIL。改为 len > 100 且 code==200 即视为PASS
-                        // code==200 是第一优先级，body只要>100字节就说明有响应内容（排除空200异常情况）
-                        ok = (code == 200 && len > 100);
-                        info = "HTTP " + code + " / body=" + len + "B / " + r[2];
-                        Log.i(TAG, "🧪 服务器自测 → " + info + " → " + (ok ? "✅PASS" : "❌FAIL"));
-                    } catch (Exception e) {
-                        testErr = e;
-                        info = "Exception(" + e.getClass().getSimpleName() + "): " + e.getMessage();
-                        Log.e(TAG, "🧪 自测异常", e);
-                    }
-                }
-                final boolean fOK = ok;
-                final String fInfo = info;
-                final Exception fTestErr = testErr != null ? testErr : startErrHolder[0];
-                runOnUiThread(() -> applyLoadingResult(fOK, serverFinal, fInfo, fTestErr));
+            // ---- 一加 ACE5 / ColorOS 16 视觉适配 ----
+            requestWindowFeature(Window.FEATURE_NO_TITLE);
+            getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
+            getWindow().getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                            | View.SYSTEM_UI_FLAG_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                getWindow().getAttributes().layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
             }
-        }.start();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) getWindow().setPreferMinimalPostProcessing(true);
+
+            // ===== 4. WebView初始化（填满父Frame）=====
+            webView = new WebView(this);
+            webView.setScrollBarStyle(View.SCROLLBARS_INSIDE_OVERLAY);
+            webView.setScrollContainer(false);
+            webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
+            webView.setVerticalScrollBarEnabled(false);
+            webView.setHorizontalScrollBarEnabled(false);
+            webView.setFadingEdgeLength(0);
+            webView.setBackgroundColor(Color.WHITE);
+            FrameLayout.LayoutParams wlp = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
+            webView.setLayoutParams(wlp);
+            rootFrame.addView(webView);
+            Log.i(TAG, "🛡️【v1.0.4终极防黑】WebView已加入Frame，覆盖上层 ✓");
+
+            // ---- 启动内嵌静态HTTP服务器 ----
+            final Exception[] startErrHolder = new Exception[1];
+            try {
+                assetServer = new LocalAssetServer(getAssets(), "www", LocalAssetServer.DEFAULT_PORT);
+                assetServer.start();
+            } catch (IOException e) { startErrHolder[0]=e; Log.e(TAG,"❌ LocalAssetServer 启动异常",e); assetServer=null; }
+
+            setupWebView();
+            requestNeededPermissions();
+            showLoadingPlaceholder(); // 占位页(白猫动画)
+
+            final LocalAssetServer serverFinal = assetServer;
+            final FrameLayout finalRootFrame = rootFrame;
+            final View finalAnchorRed = anchorRed;
+            new Thread("NoriSelfTest") {
+                @Override public void run() {
+                    android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);
+                    boolean ok=false; String info=""; Exception testErr=null;
+                    if (serverFinal != null) {
+                        try {
+                            String u = serverFinal.getBaseUrl() + "index.html";
+                            Object[] r = selfTestHttpServer(u, 8000);
+                            int code=(int)r[0]; long len=(long)r[1];
+                            // index.html骨架约1136B → >100就PASS
+                            ok = (code==200 && len>100);
+                            info = "HTTP " + code + " / body=" + len + "B / " + r[2];
+                            Log.i(TAG, "🧪 服务器自测 → " + info + " → " + (ok?"✅PASS":"❌FAIL"));
+                        } catch (Exception e) {
+                            testErr=e; info="Exception("+e.getClass().getSimpleName()+"): "+e.getMessage();
+                            Log.e(TAG, "🧪 自测异常", e);
+                        }
+                    }
+                    final boolean fOK=ok; final String fInfo=info;
+                    final Exception fTestErr = (testErr!=null)?testErr:startErrHolder[0];
+                    runOnUiThread(() -> {
+                        try {
+                            applyLoadingResult(fOK, serverFinal, fInfo, fTestErr);
+                            // 加载完成，移除红色锚点，不挡住正常NoriOS界面
+                            if (finalAnchorRed != null && finalRootFrame != null) {
+                                try { finalRootFrame.removeView(finalAnchorRed); }
+                                catch (Throwable ignored) {}
+                            }
+                        } catch (Throwable applyT) {
+                            Log.e(TAG, "applyLoadingResult崩溃！走崩溃兜底", applyT);
+                            showCrashNativeWhitePage(finalRootFrame, applyT);
+                        }
+                    });
+                }
+            }.start();
+        } catch (Throwable t) {
+            // ============== onCreate任何异常！100%不再黑屏 ==============
+            Log.e(TAG, "💥 onCreate整体崩溃！启动原生白色崩溃兜底喵！", t);
+            try { Toast.makeText(this, "🐱 NoriOS启动遇到问题喵！(v1.0.4崩溃兜底已启用)", Toast.LENGTH_LONG).show(); } catch (Throwable ignored) {}
+            if (rootFrame == null) {
+                rootFrame = new FrameLayout(this);
+                rootFrame.setBackgroundColor(Color.WHITE);
+                setContentView(rootFrame);
+            }
+            showCrashNativeWhitePage(rootFrame, t);
+        }
+    }
+
+    /** v1.0.4终极兜底：onCreate任何崩溃 → 渲染原生白色可滚动面板 + 完整崩溃堆栈（主人截图发给小月即可） */
+    private void showCrashNativeWhitePage(FrameLayout rootFrame, Throwable t) {
+        if (rootFrame == null) return;
+        try {
+            ScrollView sv = new ScrollView(this);
+            sv.setBackgroundColor(Color.WHITE);
+            sv.setLayoutParams(new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+            LinearLayout ll = new LinearLayout(this);
+            ll.setOrientation(LinearLayout.VERTICAL);
+            ll.setPadding(40, 60, 40, 60);
+            ll.setLayoutParams(new ScrollView.LayoutParams(ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
+
+            TextView title = new TextView(this);
+            title.setText("🐱 NoriOS v1.0.4 · 崩溃兜底页（请截图发给小月！）");
+            title.setTextColor(0xFFD32F2F);
+            title.setTextSize(20);
+            title.setPadding(0, 0, 0, 20);
+            ll.addView(title);
+
+            TextView info = new TextView(this);
+            StringBuilder sb = new StringBuilder();
+            sb.append("⏱ ").append(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new java.util.Date())).append("\n");
+            sb.append("📱 机型: ").append(android.os.Build.MODEL).append("\n");
+            sb.append("🤖 系统: Android ").append(Build.VERSION.RELEASE).append(" (SDK ").append(Build.VERSION.SDK_INT).append(")\n");
+            sb.append("📦 版本: v1.0.4 / versionCode=104\n");
+            sb.append("💾 Assets: ").append(countAssets("www")).append(" 个文件 / index.html ").append(hasAsset("www/index.html")?"✅存在":"❌不存在").append("\n\n");
+            sb.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+            sb.append("💥 崩溃类型: ").append(t.getClass().getName()).append("\n");
+            sb.append("💬 崩溃消息: ").append(t.getMessage() == null ? "(null)" : t.getMessage()).append("\n");
+            sb.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n");
+            sb.append("📚 完整堆栈:\n");
+            java.io.StringWriter sw = new java.io.StringWriter();
+            t.printStackTrace(new java.io.PrintWriter(sw));
+            sb.append(sw.toString());
+            info.setText(sb.toString());
+            info.setTextColor(0xFF212121);
+            info.setTextSize(13);
+            info.setPadding(10, 20, 10, 20);
+            info.setBackgroundColor(0xFFFFF9C4);
+            ll.addView(info);
+
+            // 两个手动加载按钮
+            TextView tip = new TextView(this);
+            tip.setText("\n💡 以下是备用加载方式：（先复制崩溃截图发给小月！）\n");
+            tip.setTextColor(0xFF1565C0);
+            tip.setTextSize(14);
+            ll.addView(tip);
+
+            android.widget.Button btnHttp = new android.widget.Button(this);
+            btnHttp.setText("✅ 尝试 HTTP 加载 (推荐)");
+            btnHttp.setBackgroundColor(0xFF2E7D32);
+            btnHttp.setTextColor(Color.WHITE);
+            btnHttp.setOnClickListener(v -> {
+                try {
+                    if (assetServer == null) {
+                        assetServer = new LocalAssetServer(getAssets(), "www", LocalAssetServer.DEFAULT_PORT);
+                        assetServer.start();
+                    }
+                    if (webView == null) recreateWebView(rootFrame);
+                    webView.loadUrl(assetServer.getBaseUrl() + "index.html");
+                } catch (Exception e) {
+                    Toast.makeText(this, "HTTP加载失败: "+e.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            });
+            ll.addView(btnHttp);
+
+            android.widget.Button btnFile = new android.widget.Button(this);
+            btnFile.setText("📁 尝试 file:// 备用加载");
+            btnFile.setBackgroundColor(0xFF1565C0);
+            btnFile.setTextColor(Color.WHITE);
+            btnFile.setOnClickListener(v -> tryFileFallback());
+            LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            bp.topMargin = 20;
+            btnFile.setLayoutParams(bp);
+            ll.addView(btnFile);
+
+            sv.addView(ll);
+            rootFrame.removeAllViews();
+            rootFrame.addView(sv);
+            Log.w(TAG, "🩹【v1.0.4崩溃兜底】原生白色面板已成功渲染（主人可截图/点按钮）");
+        } catch (Throwable superT) {
+            Log.e(TAG, "崩溃兜底渲染自己也崩了(不可思议)", superT);
+        }
+    }
+
+    /** 崩溃兜底内用：重建WebView（如果WebView==null） */
+    private void recreateWebView(FrameLayout rootFrame) {
+        try {
+            webView = new WebView(this);
+            webView.setBackgroundColor(Color.WHITE);
+            webView.setLayoutParams(new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+            rootFrame.addView(webView);
+            setupWebView();
+        } catch (Throwable t) { Log.e(TAG, "recreateWebView失败", t); }
     }
 
     /* ---------------- v1.0.2 黑屏修复：占位页 & 自测结果处理 ---------------- */
