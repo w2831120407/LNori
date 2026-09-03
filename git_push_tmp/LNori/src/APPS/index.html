@@ -1,0 +1,139 @@
+<!-- NoriOS 桌面 — 顶层拼接组件 (纯 H5 版本) -->
+<!-- 每个软件都以独立目录 + index.html 组件形式提供 -->
+
+<div class="nori-desktop" data-desktop="nori">
+  <!-- 桌面应用层：由顶层拼接各软件 -->
+  <main class="nori-workspace">
+    <!-- Browser 浏览器应用 -->
+    <div class="nori-app nori-app-browser" data-app="browser">
+      <div id="browser-root" class="nori-app-root"></div>
+    </div>
+    
+    <!-- Files 文件管理器应用 -->
+    <div class="nori-app nori-app-files" data-app="files">
+      <div id="files-root" class="nori-app-root"></div>
+    </div>
+    
+    <!-- Mail 邮件应用 -->
+    <div class="nori-app nori-app-mail" data-app="mail">
+      <div id="mail-root" class="nori-app-root"></div>
+    </div>
+    
+    <!-- Messenger 通讯应用 -->
+    <div class="nori-app nori-app-messenger" data-app="messenger">
+      <div id="messenger-root" class="nori-app-root"></div>
+    </div>
+    
+    <!-- Terminal 终端应用 -->
+    <div class="nori-app nori-app-terminal" data-app="terminal">
+      <div id="terminal-root" class="nori-app-root"></div>
+    </div>
+    
+    <!-- Preview 预览应用 -->
+    <div class="nori-app nori-app-preview" data-app="preview">
+      <div id="preview-root" class="nori-app-root"></div>
+    </div>
+    
+    <!-- Idle 闲逛应用 -->
+    <div class="nori-app nori-app-idle" data-app="idle">
+      <div id="idle-root" class="nori-app-root"></div>
+    </div>
+    
+    <!-- Login 登录应用 -->
+    <div class="nori-app nori-app-login" data-app="login">
+      <div id="login-root" class="nori-app-root"></div>
+    </div>
+    
+    <!-- Markdown 应用 -->
+    <div class="nori-app nori-app-markdown" data-app="markdown">
+      <div id="markdown-root" class="nori-app-root"></div>
+    </div>
+    
+    <!-- CakeDuel 蛋糕对决应用 -->
+    <div class="nori-app nori-app-cakeduel" data-app="cakeduel">
+      <div id="cakeduel-root" class="nori-app-root"></div>
+    </div>
+    
+    <!-- Pictionary 你画我猜应用 -->
+    <div class="nori-app nori-app-pictionary" data-app="pictionary">
+      <div id="pictionary-root" class="nori-app-root"></div>
+    </div>
+  </main>
+
+  <!-- Dock 停靠栏 -->
+  <div class="nori-dock" data-app="dock" role="toolbar" aria-label="应用停靠栏">
+    <div id="dock-root" class="nori-dock-root"></div>
+  </div>
+</div>
+
+<style>
+  .nori-desktop {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background: radial-gradient(1200px 600px at 20% -10%, #232a52 0%, transparent 60%),
+      radial-gradient(1000px 500px at 90% 110%, #2a2340 0%, transparent 55%), #0d0f1a;
+    color: #e8eaf6;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+  }
+  .nori-workspace {
+    position: absolute;
+    inset: 0;
+  }
+  .nori-app-root {
+    display: none; /* 各应用窗口默认隐藏，由 Dock/窗口管理器控制显隐 */
+  }
+  .nori-dock {
+    position: fixed;
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    background: rgba(22, 26, 43, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+  .nori-dock-root {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+</style>
+
+<script type="module">
+  // 软件清单（供 Dock 生成入口 / 顶层注册表使用）
+  export const apps = [
+    { id: 'browser',   title: '浏览器' },
+    { id: 'files',     title: '文件' },
+    { id: 'mail',      title: '邮件' },
+    { id: 'messenger', title: '通讯' },
+    { id: 'terminal',  title: '终端' },
+    { id: 'preview',   title: '预览' },
+    { id: 'idle',      title: '闲逛' },
+    { id: 'login',     title: '登录' },
+    { id: 'markdown',  title: 'Markdown' },
+    { id: 'cakeduel',  title: '蛋糕对决' },
+    { id: 'pictionary',title: '你画我猜' },
+  ];
+  
+  // 加载各应用脚本
+  const appScripts = {
+    browser: '/APPS/browser/src/BrowserApp-BM1_j6Y4.js',
+    dock: '/APPS/dock/src/QfrDock-D2m-2E_A.js',
+    files: '/APPS/files/src/FilesScreen-BmorLrPA.js'
+  };
+  
+  // 动态加载应用脚本
+  Object.entries(appScripts).forEach(([appId, scriptUrl]) => {
+    const script = document.createElement('script');
+    script.type = 'module';
+    script.src = scriptUrl;
+    document.body.appendChild(script);
+  });
+</script>

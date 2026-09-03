@@ -366,10 +366,18 @@ public class LocalAssetServer {
 
     private static String normalizePath(String path) {
         if (path == null || path.isEmpty()) return "/";
-        // 防穿越
+        // v1.0.9: 主人要求打包使用相对路径 ./ → 浏览器可能拼出 ./assets/xxx 或 /./assets/xxx，统一归一
+        // 1. 去 /./ /.. 穿越
+        path = path.replace("/./", "/");
+        if (path.startsWith("./")) path = "/" + path.substring(2);
+        if (path.startsWith("/./")) path = "/" + path.substring(3);
+        // 2. 去 .. 穿越
         if (path.contains("..")) path = path.replaceAll("\\.\\.", "");
+        // 3. 归一 / 开头
         if (!path.startsWith("/")) path = "/" + path;
-        // 解码 %xx 简单处理
+        // 4. 合并连续 // → /
+        while (path.contains("//")) path = path.replace("//", "/");
+        // 5. 解码 %xx
         try { path = java.net.URLDecoder.decode(path, "UTF-8"); } catch (Exception ignored) {}
         return path;
     }

@@ -1,0 +1,44 @@
+# ===== 大文件二进制产物（>100MB，走Release Assets，绝不入Git）=====
+*.apk
+*.aab
+*.ap_
+*.dex
+*.jar
+
+# ===== 签名密钥（极高风险！绝不能泄露到GitHub =====
+*.keystore
+*.jks
+*.p12
+*.pfx
+signing.properties
+
+# ===== 构建临时产物 =====
+android_build/build_manual/
+android_build/NoriOS/build_manual/
+android_build/NoriOS/.gradle/
+android_build/NoriOS/app/build/
+build/
+out/
+*.flat
+
+# ===== Gradle/IDE缓存 =====
+.gradle/
+local.properties
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# ===== Android SDK本地配置 =====
+captures/
+.externalNativeBuild/
+.cxx/
+
+# ===== Android 构建临时 assets（构建时从 src/ 动态复制，不入库）=====
+android_build/NoriOS/app/src/main/assets/www/
+android_build/NoriOS/app/src/main/assets/*.tmp
+
+# ===== 构建日志 =====
+*.log
+/tmp/build_*.log

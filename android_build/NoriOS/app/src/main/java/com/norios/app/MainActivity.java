@@ -53,8 +53,8 @@ import java.util.Locale;
 public class MainActivity extends Activity {
 
     private static final String TAG = "NoriOS";
-    private static final String APP_VERSION = "v1.0.7";
-    private static final int APP_VERSION_CODE = 107;
+    private static final String APP_VERSION = "v1.0.9";
+    private static final int APP_VERSION_CODE = 109;
     private static final int INPUT_FILE_REQUEST_CODE = 1;
     private static final int PERMISSION_REQUEST_CODE = 100;
     /** v1.0.7 WebView全链路诊断：环形缓冲200条(最新优先) — Console / WebResourceError / PageState / HTTP */

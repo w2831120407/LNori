@@ -4,14 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NoriOS</title>
-    <link rel="icon" type="image/png" href="/icon.png" />
-    <link rel="stylesheet" href="/fonts.css" />
+    <link rel="icon" type="image/png" href="./icon.png" />
+    <link rel="stylesheet" href="./fonts.css" />
     
     <!-- Live2D Cubism SDK -->
-    <script src="/cubism_sdk/Core/live2dcubismcore.js"></script>
+    <script src="./cubism_sdk/Core/live2dcubismcore.js"></script>
     
     <!-- Main Application Styles -->
-    <link rel="stylesheet" href="/assets/index-FU-0vwSE.css" />
+    <link rel="stylesheet" href="./assets/index-FU-0vwSE.css" />
     
     <!-- Cordis Framework (replacing Astro) -->
     <!-- BUGFIX v1.0.8: 以下错误的import { m_x_App }死代码会导致ES Module SyntaxError(没有名为该导出的模块)，
@@ -21,8 +21,8 @@
   <body>
     <div id="root"></div>
     
-    <!-- Preload critical assets -->
-    <link rel="modulepreload" crossorigin href="/assets/i18n-DtIC1LRi.js" />
-    <link rel="modulepreload" crossorigin href="/assets/index-CyHAbkO5.js" />
+    <!-- Preload critical assets (相对路径！不依赖绝对根/) -->
+    <link rel="modulepreload" crossorigin href="./assets/i18n-DtIC1LRi.js" />
+    <link rel="modulepreload" crossorigin href="./assets/index-CyHAbkO5.js" />
   </body>
 </html>

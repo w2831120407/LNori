@@ -1,5 +1,5 @@
 import{j as e}from"./index-CyHAbkO5.js";import{r as p,u as k}from"./i18n-DtIC1LRi.js";import{e as h,u as M,c as F,m as i,A as y,t as w}from"./NormalApp-Cn6agT0F.js";import{d as G}from"./deriveScreen-CBWfbwMk.js";import{u as T}from"./useCompactHeight-CNibAkHL.js";import{C as B}from"./HelpOverlay-D485oIXH.js";const t={canopy:"#1a2418",moss:"#4a5a40",leaf:"#7ab55c",gold:"#d4a853",goldLight:"#f0d78c",amber:"#c98b2e",berry:"#e85d75",cream:"#f5f0e6",bark:"#5c4a3d"},O=`
-@import url('/fonts.css');
+@import url('./fonts.css');
 `;function I(){return e.jsxs("div",{className:"absolute inset-0 overflow-hidden",children:[e.jsx("div",{className:"absolute inset-0",style:{background:`linear-gradient(180deg, 
             hsl(160, 35%, 8%) 0%, 
             hsl(155, 40%, 10%) 30%,
