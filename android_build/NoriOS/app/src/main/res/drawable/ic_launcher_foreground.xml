@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 主体圆形渐变背景 -->
+    <path
+        android:fillColor="#6B5BFF"
+        android:pathData="M54,27A27,27 0,1 1,54 81A27,27 0,1 1,54 27z" />
+
+    <!-- N 字母（白色）- 代表 NoriOS -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="0.5"
+        android:pathData="M42,38 L42,70 L48,70 L48,48 L60,66 L66,66 L66,38 L60,38 L60,60 L48,42 Z" />
+
+    <!-- 装饰小星星 -->
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M72,32 L73.5,35 L77,35.5 L74.5,37.8 L75.2,41.3 L72,39.5 L68.8,41.3 L69.5,37.8 L67,35.5 L70.5,35 Z" />
+
+    <!-- 小装饰圆点 -->
+    <path
+        android:fillColor="#03DAC5"
+        android:pathData="M36,72 A3,3 0,1 1,36 78A3,3 0,1 1,36 72z" />
+</vector>

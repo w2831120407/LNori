@@ -1,0 +1,20 @@
+// Top-level build file - 只用腾讯云镜像（已验证支持Google + Maven Central）
+buildscript {
+    repositories {
+        maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
+    }
+    dependencies {
+        // AGP 8.4.2 - 已在腾讯云镜像验证可下载
+        classpath 'com.android.tools.build:gradle:8.4.2'
+    }
+}
+
+allprojects {
+    repositories {
+        maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
