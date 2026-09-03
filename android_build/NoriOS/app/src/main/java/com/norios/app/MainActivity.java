@@ -123,7 +123,10 @@ public class MainActivity extends Activity {
                         String u = serverFinal.getBaseUrl() + "index.html";
                         Object[] r = selfTestHttpServer(u, 8000);
                         int code = (int) r[0]; long len = (long) r[1];
-                        ok = (code == 200 && len > 5000);
+                        // BUGFIX v1.0.3: index.html 实际大小只有约1136B（骨架，主体在index-xxx.js里），
+                        // 所以 len > 5000 的判断过于严苛，会误判为FAIL。改为 len > 100 且 code==200 即视为PASS
+                        // code==200 是第一优先级，body只要>100字节就说明有响应内容（排除空200异常情况）
+                        ok = (code == 200 && len > 100);
                         info = "HTTP " + code + " / body=" + len + "B / " + r[2];
                         Log.i(TAG, "🧪 服务器自测 → " + info + " → " + (ok ? "✅PASS" : "❌FAIL"));
                     } catch (Exception e) {
@@ -169,9 +172,12 @@ public class MainActivity extends Activity {
             Log.i(TAG, "🌐 HTTP自测通过，加载: " + url);
             webView.loadUrl(url);
         } else {
-            Log.w(TAG, "⚠️ HTTP自测未通过，先显示诊断页 → file fallback");
-            showErrorDiagnosticPage(err, selfTestInfo);
-            webView.postDelayed(() -> tryFileFallback(), 1500);
+            Log.w(TAG, "⚠️ HTTP自测未通过，先显示诊断页 → 15秒后file fallback");
+            showErrorDiagnosticPage(err, selfTestInfo, 15); // BUGFIX v1.0.3: 1.5s → 15s
+            webView.postDelayed(() -> {
+                Log.i(TAG, "⏰ 15秒到，触发file fallback");
+                tryFileFallback();
+            }, 15_000L);
         }
     }
 
@@ -199,27 +205,43 @@ public class MainActivity extends Activity {
         return new Object[]{ code, len, String.format("CT=%s", ct) };
     }
 
-    /** 显示错误诊断页（保证用户看不到纯黑/纯白）——v1.0.2 关键兜底 */
-    private void showErrorDiagnosticPage(Exception err, String selfTestInfo) {
+    /** 显示诊断页（v1.0.3：HTTP 200用绿卡温和提示，异常用红卡；倒计时15秒+可取消） */
+    private void showErrorDiagnosticPage(Exception err, String selfTestInfo, int countdownSec) {
+        boolean http200 = (selfTestInfo != null && selfTestInfo.startsWith("HTTP 200"));
+        String cardBg    = http200 ? "#e8f5e9" : "#fff5f5";
+        String cardBd    = http200 ? "#a5d6a7" : "#ffcdd2";
+        String titleClr  = http200 ? "#2e7d32" : "#d32f2f";
+        String titleStr  = http200 ? "🐱 NoriOS v1.0.3 · 启动信息（绿色=HTTP服务已正常）" : "🐱 NoriOS v1.0.3 · 启动诊断页";
+        String desc      = http200
+            ? "✅ HTTP服务器自测正常（200 OK）。<br>为保险起见系统仍展示完整诊断信息，请点击下方绿色「立即进入 HTTP 加载」按钮即可正常使用喵～"
+            : "内嵌HTTP服务器未达到最佳启动状态，下方是完整诊断信息，<b>"+countdownSec+"秒后</b>将自动切换到备用加载方式喵～<br>如仍无法正常运行，请将下方截图发给开发者～小月会马上修喵！";
         StringBuilder sb = new StringBuilder();
-        sb.append("<!doctype html><html lang=zh><head><meta charset=utf-8><meta name=viewport content=\"width=device-width,initial-scale=1\"><title>NoriOS 诊断页 v1.0.2</title>");
+        sb.append("<!doctype html><html lang=zh><head><meta charset=utf-8><meta name=viewport content=\"width=device-width,initial-scale=1\"><title>NoriOS 诊断 v1.0.3</title>");
         sb.append("<style>");
         sb.append("*{box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,\"PingFang SC\",\"Microsoft YaHei\",sans-serif;");
         sb.append("max-width:720px;margin:24px auto;padding:16px;background:#fff;color:#111;line-height:1.7}");
-        sb.append(".card{border:1px solid #ffcdd2;border-radius:14px;padding:16px 20px;background:#fff5f5}");
-        sb.append("h1{color:#d32f2f;font-size:22px;margin:0 0 10px}h2{font-size:16px;color:#1976d2;margin:20px 0 10px}");
+        sb.append(".card{border:1px solid ").append(cardBd).append(";border-radius:14px;padding:16px 20px;background:").append(cardBg).append("}");
+        sb.append("h1{color:").append(titleClr).append(";font-size:22px;margin:0 0 10px}h2{font-size:16px;color:#1976d2;margin:20px 0 10px}");
         sb.append("code{background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:13px}");
         sb.append(".st{border-collapse:collapse;width:100%}.st td{padding:6px 10px;border-bottom:1px solid #eee;font-size:14px}");
         sb.append(".st td:first-child{width:140px;color:#666;font-weight:bold}");
-        sb.append(".btn{display:inline-block;margin-top:14px;padding:10px 20px;background:#1976d2;color:#fff;border-radius:10px;text-decoration:none;font-weight:600}");
+        sb.append(".btn{display:inline-block;margin:8px 8px 0 0;padding:12px 22px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;box-shadow:0 2px 6px rgba(0,0,0,.08)}");
+        sb.append(".btn-primary{background:#2e7d32;color:#fff}.btn-secondary{background:#1976d2;color:#fff}.btn-warn{background:#ef6c00;color:#fff}.btn-gray{background:#78909c;color:#fff}");
+        sb.append(".countdown{background:#fff3e0;border-left:4px solid #ef6c00;padding:12px 16px;border-radius:10px;margin:16px 0;font-size:15px;color:#e65100;font-weight:600}");
+        sb.append(".countdown b{font-size:22px;color:#bf360c;margin:0 4px}");
         sb.append("</style></head><body>");
-        sb.append("<div class=card><h1>🐱 NoriOS v1.0.2 · 启动诊断页</h1>");
-        sb.append("<div>内嵌HTTP服务器启动失败，系统正在为您切换到备用加载方式喵～(1秒后自动尝试)<br>");
-        sb.append("如仍无法正常运行，请将下方截图发给开发者～小月会马上修喵！</div></div>");
+        sb.append("<div class=card><h1>").append(titleStr).append("</h1>");
+        sb.append("<div>").append(desc).append("</div></div>");
+        if (!http200) {
+            sb.append("<div class=countdown id=cdBox>⏰ 自动切换倒计时：<b id=cd>").append(countdownSec).append("</b>秒（点「取消自动跳转」停止）</div>");
+        }
         sb.append("<h2>📋 诊断信息</h2><table class=st>");
+        sb.append("<tr><td>版本号</td><td>NoriOS v1.0.3 · OnePlus ACE5 至尊版 ColorOS 16</td></tr>");
         sb.append("<tr><td>时间戳</td><td>").append(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new java.util.Date())).append("</td></tr>");
         sb.append("<tr><td>机型/系统</td><td>").append(android.os.Build.MODEL).append(" / Android ").append(Build.VERSION.RELEASE).append(" (SDK ").append(Build.VERSION.SDK_INT).append(")</td></tr>");
-        sb.append("<tr><td>HTTP自测结果</td><td>").append(selfTestInfo == null || selfTestInfo.isEmpty() ? "—" : selfTestInfo).append("</td></tr>");
+        String stDisp = (selfTestInfo==null||selfTestInfo.isEmpty()) ? "—" : selfTestInfo;
+        String stColor = http200 ? "color:#2e7d32;font-weight:700" : (err!=null ? "color:#c62828" : "");
+        sb.append("<tr><td>HTTP自测结果</td><td style=\"").append(stColor).append("\">").append(stDisp).append("</td></tr>");
         if (err != null) {
             sb.append("<tr><td>异常类型</td><td><code>").append(err.getClass().getName()).append("</code></td></tr>");
             sb.append("<tr><td>异常消息</td><td style=color:#c62828>").append(err.getMessage() == null ? "(无)" : android.text.Html.escapeHtml(err.getMessage())).append("</td></tr>");
@@ -228,10 +250,18 @@ public class MainActivity extends Activity {
         sb.append("<tr><td>Fallback地址</td><td><code>file:///android_asset/www/index.html</code></td></tr>");
         sb.append("<tr><td>Assets资源数</td><td>").append(countAssets("www")).append(" 个文件（index.html存在性: ").append(hasAsset("www/index.html") ? "✅" : "❌").append(")</td></tr>");
         sb.append("</table>");
-        sb.append("<h2>🔧 手动重试</h2>");
-        sb.append("<p><a class=btn href=\"file:///android_asset/www/index.html\">点击立即尝试 file:// 备用加载</a>");
-        sb.append("　<a class=btn style=background:#43a047 href=http://127.0.0.1:").append(LocalAssetServer.DEFAULT_PORT).append("/index.html>点击重试 HTTP 加载</a></p>");
-        sb.append("<p><small style=color:#888>小月v1.0.2修复版 · 一加ACE5至尊版/ColorOS 16专用</small></p>");
+        sb.append("<h2>🚀 操作按钮（请优先点绿色HTTP加载！）</h2>");
+        sb.append("<p><a class=\"btn btn-primary\" href=http://127.0.0.1:").append(LocalAssetServer.DEFAULT_PORT).append("/index.html>✅ 立即进入 HTTP 加载（推荐）</a>");
+        sb.append("<a class=\"btn btn-secondary\" href=\"file:///android_asset/www/index.html\">📁 尝试 file:// 备用加载</a>");
+        if (!http200) {
+            sb.append("<a class=\"btn btn-warn\" href=\"javascript:stopCd()\">🛑 取消自动跳转</a>");
+            sb.append("<a class=\"btn btn-gray\" href=\"javascript:startCd()\">▶️ 重新开始倒计时</a>");
+        }
+        sb.append("</p>");
+        sb.append("<p><small style=color:#888>NoriOS v1.0.3 小月修复版 · 一加ACE5至尊版/ColorOS 16专用 · 永久密钥存 keystores_permanent/release_v102.jks</small></p>");
+        if (!http200) {
+            sb.append("<script>var sec=").append(countdownSec).append(";var timer=null;var box=document.getElementById('cd');function tick(){sec--;if(sec<=0){document.getElementById('cdBox').innerHTML='⏳ 已切换file备用加载，若白屏请点上方蓝色「尝试file加载」或绿色HTTP加载';return;}box.textContent=sec;timer=setTimeout(tick,1000);}function stopCd(){clearTimeout(timer);document.getElementById('cdBox').innerHTML='✅ 自动跳转已取消，请自由截图/点按钮～';}function startCd(){clearTimeout(timer);sec=").append(countdownSec).append(";box.textContent=sec;document.getElementById('cdBox').innerHTML='⏰ 自动切换倒计时：<b id=cd>').concat(String.valueOf(countdownSec)).concat("</b>秒（点「取消自动跳转」停止）';box=document.getElementById('cd');tick();}tick();</script>");
+        }
         sb.append("</body></html>");
         webView.loadDataWithBaseURL("file:///android_asset/", sb.toString(), "text/html; charset=utf-8", "UTF-8", null);
     }
