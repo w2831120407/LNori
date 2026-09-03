@@ -14,15 +14,9 @@
     <link rel="stylesheet" href="/assets/index-FU-0vwSE.css" />
     
     <!-- Cordis Framework (replacing Astro) -->
-    <script type="module">
-      // Cordis - 轻量级前端框架 (替代 Astro)
-      import { mountApp } from '/assets/index-CyHAbkO5.js';
-      
-      // 初始化应用
-      document.addEventListener('DOMContentLoaded', () => {
-        mountApp(document.getElementById('root'));
-      });
-    </script>
+    <!-- BUGFIX v1.0.8: 以下错误的import { mountApp }死代码会导致ES Module SyntaxError(没有名为mountApp的导出)，
+         真实挂载逻辑已在index-CyHAbkO5.js最后一行自动执行: H2.createRoot(document.getElementById('root')).render(...)
+         删除后JS bundle自己正常执行createRoot挂载，避免 CON_ERROR → DOM空→全黑没内容！！ -->
   </head>
   <body>
     <div id="root"></div>
