@@ -1,5 +1,6 @@
 package com.norios.app;
 
+import android.annotation.SuppressLint;
 import android.content.res.AssetManager;
 import android.util.Log;
 
@@ -320,14 +321,18 @@ public class LocalAssetServer {
         }
     }
 
-    private static void pipe(InputStream in, OutputStream out, long maxBytes) throws IOException {
+    /** @return 实际写入字节数 written bytes (用于v1.0.5 Content-Length校验防止浏览器死等空白) */
+    private static long pipe(InputStream in, OutputStream out, long maxBytes) throws IOException {
         byte[] buf = new byte[BUFFER_SIZE];
         long remaining = maxBytes;
+        long written = 0;
         int n;
         while (remaining > 0 && (n = in.read(buf, 0, (int) Math.min(buf.length, remaining))) != -1) {
             out.write(buf, 0, n);
             remaining -= n;
+            written += n;
         }
+        return written;
     }
 
     /** v1.0.5+: 带最大字符数限制的readLine，防止恶意请求溢出 / 真实浏览器超长headers卡住 */
