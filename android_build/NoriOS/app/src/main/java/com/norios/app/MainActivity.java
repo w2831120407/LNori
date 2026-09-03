@@ -13,6 +13,7 @@ import android.provider.MediaStore;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
+import android.graphics.Color;
 import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.ConsoleMessage;
@@ -89,26 +90,184 @@ public class MainActivity extends Activity {
         webView.setVerticalScrollBarEnabled(false);
         webView.setHorizontalScrollBarEnabled(false);
         webView.setFadingEdgeLength(0);
+        // --- BUGFIX v1.0.2: 防黑屏！强制白底，主题暗色模式下默认黑背景会透出导致全黑 ---
+        getWindow().setBackgroundDrawableResource(android.R.color.white);
+        webView.setBackgroundColor(Color.WHITE);
         setContentView(webView);
 
         // ---- 启动内嵌静态 HTTP 服务器 (解决file://下绝对路径 /xxx 找不到导致白屏的问题) ----
+        final Exception[] startErrHolder = new Exception[1];
         try {
             assetServer = new LocalAssetServer(getAssets(), "www", LocalAssetServer.DEFAULT_PORT);
             assetServer.start();
         } catch (IOException e) {
-            Log.e(TAG, "❌ LocalAssetServer 启动失败喵！尝试 fallback 到 file:// 加载", e);
+            startErrHolder[0] = e;
+            Log.e(TAG, "❌ LocalAssetServer 启动异常", e);
             assetServer = null;
         }
 
         setupWebView();
         requestNeededPermissions();
 
-        // 使用本地 HTTP 服务器加载 → 语义等价于原 Node.js 服务器，绝对路径 /xxx 正常工作 ✅
-        String entryUrl = (assetServer != null)
-                ? assetServer.getBaseUrl() + "index.html"
-                : "file:///android_asset/www/index.html";
-        Log.i(TAG, "🌐 WebView.loadUrl: " + entryUrl);
-        webView.loadUrl(entryUrl);
+        // ---- BUGFIX v1.0.2: 先显示 Loading 占位页（绝对不会黑屏！），再后台跑 HTTP 自测（必须异步：避免NetworkOnMainThreadException） ----
+        showLoadingPlaceholder();
+        final LocalAssetServer serverFinal = assetServer;
+        new Thread("NoriSelfTest") {
+            @Override public void run() {
+                android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);
+                boolean ok = false;
+                String info = "";
+                Exception testErr = null;
+                if (serverFinal != null) {
+                    try {
+                        String u = serverFinal.getBaseUrl() + "index.html";
+                        Object[] r = selfTestHttpServer(u, 8000);
+                        int code = (int) r[0]; long len = (long) r[1];
+                        ok = (code == 200 && len > 5000);
+                        info = "HTTP " + code + " / body=" + len + "B / " + r[2];
+                        Log.i(TAG, "🧪 服务器自测 → " + info + " → " + (ok ? "✅PASS" : "❌FAIL"));
+                    } catch (Exception e) {
+                        testErr = e;
+                        info = "Exception(" + e.getClass().getSimpleName() + "): " + e.getMessage();
+                        Log.e(TAG, "🧪 自测异常", e);
+                    }
+                }
+                final boolean fOK = ok;
+                final String fInfo = info;
+                final Exception fTestErr = testErr != null ? testErr : startErrHolder[0];
+                runOnUiThread(() -> applyLoadingResult(fOK, serverFinal, fInfo, fTestErr));
+            }
+        }.start();
+    }
+
+    /* ---------------- v1.0.2 黑屏修复：占位页 & 自测结果处理 ---------------- */
+
+    /** Loading 占位页（HTTP服务器启动/自测期间显示，保证绝对不是黑屏） */
+    private void showLoadingPlaceholder() {
+        String html = "<!doctype html><html><head><meta charset=utf-8><meta name=viewport content=\"width=device-width,initial-scale=1\">" +
+                "<title>NoriOS Loading</title>" +
+                "<style>html,body{margin:0;padding:0;width:100%;height:100%;background:#ffffff;color:#333;" +
+                "font-family:-apple-system,BlinkMacSystemFont,\"PingFang SC\",\"Microsoft YaHei\",sans-serif;" +
+                "display:flex;align-items:center;justify-content:center;text-align:center}" +
+                ".box{padding:40px}.cat{font-size:72px;margin-bottom:16px;animation:bounce 1.2s infinite}" +
+                "h1{margin:0 0 12px;color:#6B5BFF;font-size:24px}" +
+                "p{margin:0;font-size:14px;color:#666}@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-16px)}}" +
+                " .bar{width:220px;height:6px;border-radius:999px;background:#eee;margin:24px auto 0;overflow:hidden}" +
+                " .bar::after{content:'';display:block;width:40%;height:100%;background:linear-gradient(90deg,#6B5BFF,#03DAC5);border-radius:999px;animation:move 1.2s infinite}" +
+                "@keyframes move{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}</style></head>" +
+                "<body><div class=box><div class=cat>🐱</div><h1>NoriOS 正在启动喵～</h1>" +
+                "<p>正在准备小精灵Nori的家园...稍等一会马上好！</p><div class=bar></div>" +
+                "<p style=\"margin-top:18px;font-size:12px;color:#999\">v1.0.2 · ColorOS 16 优化版</p>" +
+                "</div></body></html>";
+        webView.loadDataWithBaseURL("file:///android_asset/", html, "text/html; charset=utf-8", "UTF-8", null);
+    }
+
+    /** 后台自测结束 → UI线程处理最终加载策略 */
+    private void applyLoadingResult(boolean serverOK, LocalAssetServer srv, String selfTestInfo, Exception err) {
+        if (serverOK && srv != null) {
+            String url = srv.getBaseUrl() + "index.html";
+            Log.i(TAG, "🌐 HTTP自测通过，加载: " + url);
+            webView.loadUrl(url);
+        } else {
+            Log.w(TAG, "⚠️ HTTP自测未通过，先显示诊断页 → file fallback");
+            showErrorDiagnosticPage(err, selfTestInfo);
+            webView.postDelayed(() -> tryFileFallback(), 1500);
+        }
+    }
+
+    /** HTTP 自测：GET url 返回 [code, bodyLen, extraInfo] */
+    @android.annotation.SuppressLint("DefaultLocale")
+    private Object[] selfTestHttpServer(String urlStr, int timeoutMs) throws Exception {
+        java.net.URL url = new java.net.URL(urlStr);
+        java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+        conn.setConnectTimeout(timeoutMs);
+        conn.setReadTimeout(timeoutMs);
+        conn.setRequestMethod("GET");
+        conn.setInstanceFollowRedirects(true);
+        int code = conn.getResponseCode();
+        long len = 0;
+        String ct = conn.getContentType();
+        java.io.InputStream in = null;
+        try {
+            in = (code >= 400) ? conn.getErrorStream() : conn.getInputStream();
+            if (in != null) {
+                byte[] buf = new byte[4096];
+                int n;
+                while ((n = in.read(buf)) != -1) len += n;
+            }
+        } finally { if (in != null) in.close(); conn.disconnect(); }
+        return new Object[]{ code, len, String.format("CT=%s", ct) };
+    }
+
+    /** 显示错误诊断页（保证用户看不到纯黑/纯白）——v1.0.2 关键兜底 */
+    private void showErrorDiagnosticPage(Exception err, String selfTestInfo) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("<!doctype html><html lang=zh><head><meta charset=utf-8><meta name=viewport content=\"width=device-width,initial-scale=1\"><title>NoriOS 诊断页 v1.0.2</title>");
+        sb.append("<style>");
+        sb.append("*{box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,\"PingFang SC\",\"Microsoft YaHei\",sans-serif;");
+        sb.append("max-width:720px;margin:24px auto;padding:16px;background:#fff;color:#111;line-height:1.7}");
+        sb.append(".card{border:1px solid #ffcdd2;border-radius:14px;padding:16px 20px;background:#fff5f5}");
+        sb.append("h1{color:#d32f2f;font-size:22px;margin:0 0 10px}h2{font-size:16px;color:#1976d2;margin:20px 0 10px}");
+        sb.append("code{background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:13px}");
+        sb.append(".st{border-collapse:collapse;width:100%}.st td{padding:6px 10px;border-bottom:1px solid #eee;font-size:14px}");
+        sb.append(".st td:first-child{width:140px;color:#666;font-weight:bold}");
+        sb.append(".btn{display:inline-block;margin-top:14px;padding:10px 20px;background:#1976d2;color:#fff;border-radius:10px;text-decoration:none;font-weight:600}");
+        sb.append("</style></head><body>");
+        sb.append("<div class=card><h1>🐱 NoriOS v1.0.2 · 启动诊断页</h1>");
+        sb.append("<div>内嵌HTTP服务器启动失败，系统正在为您切换到备用加载方式喵～(1秒后自动尝试)<br>");
+        sb.append("如仍无法正常运行，请将下方截图发给开发者～小月会马上修喵！</div></div>");
+        sb.append("<h2>📋 诊断信息</h2><table class=st>");
+        sb.append("<tr><td>时间戳</td><td>").append(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new java.util.Date())).append("</td></tr>");
+        sb.append("<tr><td>机型/系统</td><td>").append(android.os.Build.MODEL).append(" / Android ").append(Build.VERSION.RELEASE).append(" (SDK ").append(Build.VERSION.SDK_INT).append(")</td></tr>");
+        sb.append("<tr><td>HTTP自测结果</td><td>").append(selfTestInfo == null || selfTestInfo.isEmpty() ? "—" : selfTestInfo).append("</td></tr>");
+        if (err != null) {
+            sb.append("<tr><td>异常类型</td><td><code>").append(err.getClass().getName()).append("</code></td></tr>");
+            sb.append("<tr><td>异常消息</td><td style=color:#c62828>").append(err.getMessage() == null ? "(无)" : android.text.Html.escapeHtml(err.getMessage())).append("</td></tr>");
+        }
+        sb.append("<tr><td>预期HTTP地址</td><td><code>http://127.0.0.1:").append(LocalAssetServer.DEFAULT_PORT).append("/index.html</code></td></tr>");
+        sb.append("<tr><td>Fallback地址</td><td><code>file:///android_asset/www/index.html</code></td></tr>");
+        sb.append("<tr><td>Assets资源数</td><td>").append(countAssets("www")).append(" 个文件（index.html存在性: ").append(hasAsset("www/index.html") ? "✅" : "❌").append(")</td></tr>");
+        sb.append("</table>");
+        sb.append("<h2>🔧 手动重试</h2>");
+        sb.append("<p><a class=btn href=\"file:///android_asset/www/index.html\">点击立即尝试 file:// 备用加载</a>");
+        sb.append("　<a class=btn style=background:#43a047 href=http://127.0.0.1:").append(LocalAssetServer.DEFAULT_PORT).append("/index.html>点击重试 HTTP 加载</a></p>");
+        sb.append("<p><small style=color:#888>小月v1.0.2修复版 · 一加ACE5至尊版/ColorOS 16专用</small></p>");
+        sb.append("</body></html>");
+        webView.loadDataWithBaseURL("file:///android_asset/", sb.toString(), "text/html; charset=utf-8", "UTF-8", null);
+    }
+
+    /** file:// fallback —— 通过 <base> 注入 + 直接加载 file:///android_asset/www/index.html */
+    private void tryFileFallback() {
+        try {
+            Log.i(TAG, "♻️ file fallback: file:///android_asset/www/index.html");
+            webView.loadUrl("file:///android_asset/www/index.html");
+        } catch (Throwable t) {
+            Log.e(TAG, "fallback 加载异常", t);
+        }
+    }
+
+    /** 诊断辅助：统计 assets/子目录 的资源文件数 */
+    private int countAssets(String sub) {
+        try { return countAssetsRecursive(getAssets(), sub); }
+        catch (IOException e) { return -1; }
+    }
+    private static int countAssetsRecursive(android.content.res.AssetManager am, String path) throws IOException {
+        int c = 0;
+        String[] items = am.list(path);
+        if (items == null) return 0;
+        if (items.length == 0) return 1; // 空array=文件（不同系统行为不一致，做兜底）
+        // 判断是否是文件：尝试open不抛就是文件
+        java.io.InputStream test = null;
+        try { test = am.open(path); c = 1; }
+        catch (IOException maybeDir) {
+            for (String it : items) c += countAssetsRecursive(am, path.equals("") ? it : path + "/" + it);
+        } finally { if (test != null) try { test.close(); } catch (IOException ignored) {} }
+        return c;
+    }
+    /** 诊断辅助：判断assets里某文件是否存在 */
+    private boolean hasAsset(String path) {
+        try (java.io.InputStream ignored = getAssets().open(path)) { return true; }
+        catch (IOException e) { return false; }
     }
 
     @SuppressLint("SetJavaScriptEnabled")

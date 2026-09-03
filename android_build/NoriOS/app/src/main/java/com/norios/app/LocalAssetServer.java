@@ -48,7 +48,7 @@ public class LocalAssetServer {
 
     private final AssetManager assetManager;
     private final String assetRoot; // "www"（对应 assets/www/ 目录）
-    private final int port;
+    private int port; // v1.0.2起支持端口冲突自动重试，所以不再final
 
     private ServerSocket serverSocket;
     private ExecutorService executor;
@@ -66,7 +66,9 @@ public class LocalAssetServer {
         this(am, "www", DEFAULT_PORT);
     }
 
-    /** 启动服务器（异步，不阻塞调用方） */
+    /** 启动服务器（异步，不阻塞调用方）。
+     *  BUGFIX v1.0.2：端口冲突自动重试（port ~ port+MAX_RETRIES），保证99%场景能成功绑定。
+     */
     public synchronized void start() throws IOException {
         if (running) return;
         executor = Executors.newCachedThreadPool(r -> {
@@ -74,9 +76,31 @@ public class LocalAssetServer {
             t.setDaemon(true);
             return t;
         });
-        serverSocket = new ServerSocket(port, 64, InetAddress.getByAddress(new byte[]{127, 0, 0, 1}));
-        serverSocket.setReuseAddress(true);
-        serverSocket.setSoTimeout(0);
+        final int MAX_RETRIES = 10;
+        IOException lastErr = null;
+        InetAddress loopback = InetAddress.getByAddress(new byte[]{127, 0, 0, 1});
+        for (int i = 0; i < MAX_RETRIES; i++) {
+            int tryPort = port + i;
+            try {
+                serverSocket = new ServerSocket();
+                serverSocket.setReuseAddress(true);
+                serverSocket.bind(new java.net.InetSocketAddress(loopback, tryPort), 64);
+                serverSocket.setSoTimeout(0);
+                this.port = tryPort;
+                lastErr = null;
+                break;
+            } catch (IOException bindErr) {
+                lastErr = bindErr;
+                Log.w(TAG, "⚠️ 端口 " + tryPort + " 绑定失败（可能被占用），尝试下一个端口喵... (" + (i + 1) + "/" + MAX_RETRIES + "): " + bindErr.getMessage());
+                try { if (serverSocket != null) serverSocket.close(); } catch (IOException ignored) {}
+                serverSocket = null;
+            }
+        }
+        if (serverSocket == null) {
+            throw new IOException("端口绑定失败：从 " + port + " 到 " + (port + MAX_RETRIES - 1)
+                    + " 全部无法绑定，请检查手机端口占用喵。最后一次错误："
+                    + (lastErr == null ? "(null)" : lastErr.getMessage()), lastErr);
+        }
         running = true;
         acceptThread = new Thread(this::acceptLoop, "NoriAsset-Accept");
         acceptThread.setDaemon(true);
