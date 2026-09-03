@@ -53,8 +53,28 @@ import java.util.Locale;
 public class MainActivity extends Activity {
 
     private static final String TAG = "NoriOS";
+    private static final String APP_VERSION = "v1.0.7";
+    private static final int APP_VERSION_CODE = 107;
     private static final int INPUT_FILE_REQUEST_CODE = 1;
     private static final int PERMISSION_REQUEST_CODE = 100;
+    /** v1.0.7 WebView全链路诊断：环形缓冲200条(最新优先) — Console / WebResourceError / PageState / HTTP */
+    private static final java.util.concurrent.ConcurrentLinkedDeque<String> DIAG_LOG = new java.util.concurrent.ConcurrentLinkedDeque<>();
+    private static final int DIAG_LOG_MAX = 200;
+    @SuppressLint("DefaultLocale")
+    private static void diagLog(String tag, String msg) {
+        String t = new java.text.SimpleDateFormat("HH:mm:ss.SSS", Locale.US).format(new Date());
+        String entry = String.format("[%s][%s] %s", t, tag, msg==null?"(null)":msg);
+        DIAG_LOG.addFirst(entry);
+        while (DIAG_LOG.size() > DIAG_LOG_MAX) DIAG_LOG.pollLast();
+    }
+    private static String diagSnapshot() {
+        StringBuilder sb = new StringBuilder();
+        int i=0;
+        for (String s : DIAG_LOG) {
+            sb.append(String.format("%3d. ", ++i)).append(s).append("\n");
+        }
+        return sb.length()==0 ? "(暂无诊断日志)" : sb.toString();
+    }
 
     private WebView webView;
     private LocalAssetServer assetServer;   // 内嵌静态 HTTP 服务器
@@ -65,7 +85,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // BUGFIX v1.0.4 终极防黑 & 崩溃兜底：
+        // BUGFIX v1.0.7 终极防黑 & 崩溃兜底：
         //   ① 立刻刷白Window+FrameLayout根容器+红色锚点方块(100%可见) → 任何后续崩溃都不再黑屏！
         //   ② 整个onCreate包 try/catch(Throwable) → 任何崩溃都走原生白面板+Toast提示
         //   ③ 加载成功后自动移除红色锚点(不然挡住UI)
@@ -78,7 +98,7 @@ public class MainActivity extends Activity {
             // ⚠️ ANDROID 16 强制要求：【requestFeature/Window FLAGS/SystemUi/刘海屏】
             //     必须 100% 放在 setContentView() 之前！！！
             //     否则必死：AndroidRuntimeException: requestFeature() must be called before adding content
-            //     (v1.0.4 崩溃就是第99行 requestWindowFeature 写在 setContentView 后面！)
+            //     (v1.0.7 崩溃就是第99行 requestWindowFeature 写在 setContentView 后面！)
             // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             // ---- ① Feature + Window 基础属性 (最最最前) ----
             requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -121,7 +141,7 @@ public class MainActivity extends Activity {
             rootFrame.addView(anchorRed);
             // ===== ⭐ 最后！setContentView！(Window/Feature设置完才能调用！！) =====
             setContentView(rootFrame);
-            Log.i(TAG, "🛡️【v1.0.6崩溃修复】requestWindowFeature已前移→setContentView ✓ 顺序正确(Android16不死)");
+            Log.i(TAG, "🛡️【v1.0.7崩溃修复】requestWindowFeature已前移→setContentView ✓ 顺序正确(Android16不死)");
 
             // ===== 4. WebView初始化（填满父Frame）=====
             webView = new WebView(this);
@@ -135,7 +155,7 @@ public class MainActivity extends Activity {
             FrameLayout.LayoutParams wlp = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
             webView.setLayoutParams(wlp);
             rootFrame.addView(webView);
-            Log.i(TAG, "🛡️【v1.0.4终极防黑】WebView已加入Frame，覆盖上层 ✓");
+            Log.i(TAG, "🛡️【v1.0.7终极防黑】WebView已加入Frame，覆盖上层 ✓");
 
             // ---- 启动内嵌静态HTTP服务器 ----
             final Exception[] startErrHolder = new Exception[1];
@@ -189,7 +209,7 @@ public class MainActivity extends Activity {
         } catch (Throwable t) {
             // ============== onCreate任何异常！100%不再黑屏 ==============
             Log.e(TAG, "💥 onCreate整体崩溃！启动原生白色崩溃兜底喵！", t);
-            try { Toast.makeText(this, "🐱 NoriOS启动遇到问题喵！(v1.0.4崩溃兜底已启用)", Toast.LENGTH_LONG).show(); } catch (Throwable ignored) {}
+            try { Toast.makeText(this, "🐱 NoriOS启动遇到问题喵！(v1.0.7崩溃兜底已启用)", Toast.LENGTH_LONG).show(); } catch (Throwable ignored) {}
             if (rootFrame == null) {
                 rootFrame = new FrameLayout(this);
                 rootFrame.setBackgroundColor(Color.WHITE);
@@ -199,7 +219,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    /** v1.0.4终极兜底：onCreate任何崩溃 → 渲染原生白色可滚动面板 + 完整崩溃堆栈（主人截图发给小月即可） */
+    /** v1.0.7终极兜底：onCreate任何崩溃 → 渲染原生白色可滚动面板 + 完整崩溃堆栈（主人截图发给小月即可） */
     private void showCrashNativeWhitePage(FrameLayout rootFrame, Throwable t) {
         if (rootFrame == null) return;
         try {
@@ -212,7 +232,7 @@ public class MainActivity extends Activity {
             ll.setLayoutParams(new ScrollView.LayoutParams(ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
 
             TextView title = new TextView(this);
-            title.setText("🐱 NoriOS v1.0.4 · 崩溃兜底页（请截图发给小月！）");
+            title.setText("🐱 NoriOS v1.0.7 · 崩溃兜底页（请截图发给小月！）");
             title.setTextColor(0xFFD32F2F);
             title.setTextSize(20);
             title.setPadding(0, 0, 0, 20);
@@ -223,7 +243,7 @@ public class MainActivity extends Activity {
             sb.append("⏱ ").append(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new java.util.Date())).append("\n");
             sb.append("📱 机型: ").append(android.os.Build.MODEL).append("\n");
             sb.append("🤖 系统: Android ").append(Build.VERSION.RELEASE).append(" (SDK ").append(Build.VERSION.SDK_INT).append(")\n");
-            sb.append("📦 版本: v1.0.4 / versionCode=104\n");
+            sb.append("📦 版本: ").append(APP_VERSION).append(" / versionCode=").append(APP_VERSION_CODE).append("\n");
             sb.append("💾 Assets: ").append(countAssets("www")).append(" 个文件 / index.html ").append(hasAsset("www/index.html")?"✅存在":"❌不存在").append("\n\n");
             sb.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
             sb.append("💥 崩溃类型: ").append(t.getClass().getName()).append("\n");
@@ -278,7 +298,7 @@ public class MainActivity extends Activity {
             sv.addView(ll);
             rootFrame.removeAllViews();
             rootFrame.addView(sv);
-            Log.w(TAG, "🩹【v1.0.4崩溃兜底】原生白色面板已成功渲染（主人可截图/点按钮）");
+            Log.w(TAG, "🩹【v1.0.7崩溃兜底】原生白色面板已成功渲染（主人可截图/点按钮）");
         } catch (Throwable superT) {
             Log.e(TAG, "崩溃兜底渲染自己也崩了(不可思议)", superT);
         }
@@ -295,7 +315,7 @@ public class MainActivity extends Activity {
         } catch (Throwable t) { Log.e(TAG, "recreateWebView失败", t); }
     }
 
-    /* ---------------- v1.0.2 黑屏修复：占位页 & 自测结果处理 ---------------- */
+    /* ---------------- v1.0.7 黑屏修复：占位页 & 自测结果处理 ---------------- */
 
     /** Loading 占位页（HTTP服务器启动/自测期间显示，保证绝对不是黑屏） */
     private void showLoadingPlaceholder() {
@@ -312,25 +332,214 @@ public class MainActivity extends Activity {
                 "@keyframes move{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}</style></head>" +
                 "<body><div class=box><div class=cat>🐱</div><h1>NoriOS 正在启动喵～</h1>" +
                 "<p>正在准备小精灵Nori的家园...稍等一会马上好！</p><div class=bar></div>" +
-                "<p style=\"margin-top:18px;font-size:12px;color:#999\">v1.0.2 · ColorOS 16 优化版</p>" +
+                "<p style=\"margin-top:18px;font-size:12px;color:#999\">v1.0.7 · ColorOS 16 优化版</p>" +
                 "</div></body></html>";
         webView.loadDataWithBaseURL("file:///android_asset/", html, "text/html; charset=utf-8", "UTF-8", null);
     }
 
-    /** 后台自测结束 → UI线程处理最终加载策略 */
+    /** 后台自测结束 → UI线程处理最终加载策略 + v1.0.7 DOM自动体检! */
     private void applyLoadingResult(boolean serverOK, LocalAssetServer srv, String selfTestInfo, Exception err) {
         if (serverOK && srv != null) {
             String url = srv.getBaseUrl() + "index.html";
+            diagLog("HTTP_OK", "SelfTest="+selfTestInfo+" → load "+url);
             Log.i(TAG, "🌐 HTTP自测通过，加载: " + url);
             webView.loadUrl(url);
+            // ======== v1.0.7 关键: 15秒后主动体检WebView DOM有没有内容! ========
+            // 主人说「打开后全黑没内容」=dark主题背景是黑 + mountApp()没执行成功或mount失败或抛错静默
+            // 15秒足够9大JS bundle加载+ES Module import+mountApp
+            final String expectedUrl = url;
+            final String finalSelfTest = selfTestInfo;
+            webView.postDelayed(() -> {
+                try {
+                    diagLog("DOM_CHECK", "15秒到,主动检查document.getElementById('root').innerHTML长度");
+                    // evaluateJavascript: 查root容器innerHTML长度 + innerText长度 + 子元素数
+                    String js = "(function(){"
+                            + "var r=document.getElementById('root'); if(!r)return 'NO_ROOT';"
+                            + "var html=r.innerHTML?r.innerHTML.length:0;"
+                            + "var txt=document.body&&document.body.innerText?document.body.innerText.length:0;"
+                            + "var cn=r.childElementCount||0;"
+                            + "return JSON.stringify({rootHtmlLen:html,bodyTextLen:txt,rootChildren:cn});"
+                            + "})()";
+                    if (Build.VERSION.SDK_INT >= 19) {
+                        webView.evaluateJavascript(js, value -> {
+                            try {
+                                diagLog("DOM_RESULT", "raw="+value);
+                                boolean domEmpty = true;
+                                String domInfo = value;
+                                try {
+                                    if (value != null && value.startsWith("\"") && value.endsWith("\"")) {
+                                        domInfo = value.substring(1, value.length()-1)
+                                                          .replace("\\\"","\"").replace("\\\\","\\");
+                                    }
+                                    // 简单阈值: rootHtmlLen>1000 OR rootChildren>=2 → 认为mount成功
+                                    if (domInfo != null) {
+                                        if (domInfo.equals("NO_ROOT")) domEmpty = true;
+                                        else if (domInfo.contains("rootHtmlLen") && (domInfo.contains("rootHtmlLen:0") || domInfo.contains("\"rootHtmlLen\":0"))) domEmpty = true;
+                                        else {
+                                            // 找rootHtmlLen数字
+                                            java.util.regex.Matcher m = java.util.regex.Pattern.compile("rootHtmlLen[:=]?(\\d+)").matcher(domInfo);
+                                            if (m.find()) {
+                                                long l = Long.parseLong(m.group(1));
+                                                if (l > 500) domEmpty = false;
+                                            }
+                                            m = java.util.regex.Pattern.compile("rootChildren[:=]?(\\d+)").matcher(domInfo);
+                                            if (m.find()) {
+                                                int c = Integer.parseInt(m.group(1));
+                                                if (c >= 2) domEmpty = false;
+                                            }
+                                        }
+                                    }
+                                } catch (Throwable parseT) {
+                                    domInfo = domInfo + " [parseErr:"+parseT.getMessage()+"]";
+                                }
+                                // Java lambda变量要求final/effectively final: 解析完再拷贝一份final domFinal
+                                final String domFinal = domInfo;
+                                if (domEmpty) {
+                                    Log.w(TAG, "🚨 DOM检查失败! root容器空/近乎空 → 主动弹原生诊断面板(主人说没内容就是这种!)");
+                                    diagLog("DOM_EMPTY", "触发原生诊断! DOM info="+domFinal);
+                                    runOnUiThread(() -> showWebviewDiagnosticNativeWhitePage(expectedUrl, finalSelfTest, domFinal, null));
+                                } else {
+                                    Log.i(TAG, "🎉 DOM检查通过! mountApp已渲染内容 → 保持WebView显示不打断主人!");
+                                    diagLog("DOM_OK", "info="+domFinal);
+                                }
+                            } catch (Throwable cbT) {
+                                Log.e(TAG, "DOM检查回调异常", cbT);
+                            }
+                        });
+                    }
+                } catch (Throwable checkT) {
+                    Log.e(TAG, "DOM检查postDelayed异常", checkT);
+                }
+            }, 15_000L);
         } else {
             Log.w(TAG, "⚠️ HTTP自测未通过，先显示诊断页 → 15秒后file fallback");
-            showErrorDiagnosticPage(err, selfTestInfo, 15); // BUGFIX v1.0.3: 1.5s → 15s
+            showErrorDiagnosticPage(err, selfTestInfo, 15); // BUGFIX v1.0.7: 1.5s → 15s
             webView.postDelayed(() -> {
                 Log.i(TAG, "⏰ 15秒到，触发file fallback");
                 tryFileFallback();
             }, 15_000L);
         }
+    }
+
+    /* ---------------- v1.0.7 「打开没内容」专属原生诊断白面板 + 崩溃兜底末尾加诊断日志 ---------------- */
+
+    /** v1.0.7 主人说「打开全黑没内容」: 弹原生ScrollView显示完整诊断（HTTP自测+DOM检查结果+最新200条Console/WebResourceError/进度） */
+    private void showWebviewDiagnosticNativeWhitePage(String urlLoaded, String selfTestInfo, String domResult, Throwable extra) {
+        try {
+            FrameLayout parent = (FrameLayout) ((webView != null) ? webView.getParent() : null);
+            if (parent == null) {
+                // Fallback: 重新new rootFrame
+                android.util.Log.w(TAG, "诊断面板获取parent失败,用getWindow().getDecorView()兜底");
+                android.view.ViewGroup dv = (android.view.ViewGroup) getWindow().getDecorView();
+                parent = new FrameLayout(this);
+                parent.setBackgroundColor(Color.WHITE);
+                dv.removeAllViews();
+                dv.addView(parent, new FrameLayout.LayoutParams(-1,-1));
+            }
+            ScrollView sv = new ScrollView(this);
+            sv.setBackgroundColor(Color.WHITE);
+            sv.setLayoutParams(new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+            LinearLayout ll = new LinearLayout(this);
+            ll.setOrientation(LinearLayout.VERTICAL);
+            ll.setPadding(36, 52, 36, 52);
+            ll.setLayoutParams(new ScrollView.LayoutParams(ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
+
+            // 标题红
+            TextView title = new TextView(this);
+            title.setText("🐱 NoriOS " + APP_VERSION + " · 「打开没内容」专属诊断面板（截图发给小月！）");
+            title.setTextColor(0xFFD32F2F);
+            title.setTextSize(19);
+            title.setPadding(0,0,0,16);
+            ll.addView(title);
+
+            // 信息卡片 黄底
+            TextView info = new TextView(this);
+            StringBuilder sb = new StringBuilder();
+            sb.append("⏱ ").append(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new Date())).append("\n");
+            sb.append("📱 机型: ").append(android.os.Build.MODEL).append(" / ");
+            sb.append("🤖 Android ").append(Build.VERSION.RELEASE).append("(SDK").append(Build.VERSION.SDK_INT).append(")\n");
+            sb.append("📦 版本: ").append(APP_VERSION).append(" / versionCode=").append(APP_VERSION_CODE).append("\n");
+            sb.append("💾 Assets: ").append(countAssets("www")).append(" 个 / index.html ").append(hasAsset("www/index.html")?"✅存在":"❌不存在").append("\n");
+            sb.append("🌐 URL: ").append(urlLoaded == null ? "(null)" : urlLoaded).append("\n");
+            sb.append("🧪 HTTP自测: ").append(selfTestInfo == null ? "(null)" : selfTestInfo).append("\n");
+            sb.append("🪴 DOM检查结果: ").append(domResult == null ? "(null)" : domResult).append("\n");
+            if (extra != null) {
+                java.io.StringWriter sw = new java.io.StringWriter();
+                extra.printStackTrace(new java.io.PrintWriter(sw));
+                sb.append("💥 附带异常:\n").append(sw.toString()).append("\n");
+            }
+            info.setText(sb.toString());
+            info.setTextColor(0xFF212121);
+            info.setTextSize(13);
+            info.setPadding(10,16,10,16);
+            info.setBackgroundColor(0xFFFFF9C4);
+            ll.addView(info);
+
+            // 诊断日志标题
+            TextView t2 = new TextView(this);
+            t2.setText("\n📋 WebView全链路诊断日志（最新200条，顶部=最新）");
+            t2.setTextColor(0xFF1565C0);
+            t2.setTextSize(15);
+            ll.addView(t2);
+
+            TextView diag = new TextView(this);
+            diag.setTypeface(android.graphics.Typeface.MONOSPACE);
+            diag.setText(diagSnapshot());
+            diag.setTextColor(0xFF263238);
+            diag.setTextSize(11);
+            diag.setPadding(8,10,8,20);
+            diag.setBackgroundColor(0xFFF5F5F5);
+            ll.addView(diag);
+
+            // 4个操作按钮
+            addBtn(ll, "🔄 重新 HTTP 加载(推荐)", 0xFF2E7D32, v -> {
+                try {
+                    DIAG_LOG.clear();
+                    diagLog("BTN", "主人点了【重新HTTP加载】");
+                    if (assetServer == null) { assetServer = new LocalAssetServer(getAssets(), "www", LocalAssetServer.DEFAULT_PORT); assetServer.start(); }
+                    webView.loadUrl(assetServer.getBaseUrl() + "index.html");
+                    if (webView.getParent() != null) ((FrameLayout)webView.getParent()).removeView(sv);
+                } catch (Exception e) { Toast.makeText(this, "失败: "+e.getMessage(), Toast.LENGTH_LONG).show(); }
+            });
+            addBtn(ll, "📁 切 file:// 备用加载", 0xFF1565C0, v -> {
+                try {
+                    DIAG_LOG.clear();
+                    diagLog("BTN", "主人点了【file://备用】");
+                    tryFileFallback();
+                    if (webView.getParent() != null) ((FrameLayout)webView.getParent()).removeView(sv);
+                } catch (Exception e) { Toast.makeText(this, "失败: "+e.getMessage(), Toast.LENGTH_LONG).show(); }
+            }, 18);
+            addBtn(ll, "📤 复制诊断到剪贴板(发给小月)", 0xFF6A1B9A, v -> {
+                try {
+                    android.content.ClipboardManager cb = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                    String text = "NoriOS " + APP_VERSION + " 诊断报告\n" + sb.toString() + "\n====== DIAG LOG ======\n" + diagSnapshot();
+                    cb.setPrimaryClip(android.content.ClipData.newPlainText("NoriOSDiag", text));
+                    Toast.makeText(this, "✅ 已复制" + text.length() + "字符! 粘贴给小月即可喵~", Toast.LENGTH_LONG).show();
+                } catch (Exception e) { Toast.makeText(this, "复制失败: "+e.getMessage(), Toast.LENGTH_LONG).show(); }
+            }, 18);
+            addBtn(ll, "👁 暂时隐藏诊断(继续看WebView)", 0xFF607D8B, v -> {
+                try { if (sv.getParent() != null) ((FrameLayout)sv.getParent()).removeView(sv); } catch (Throwable ignored) {}
+            }, 18);
+
+            sv.addView(ll);
+            parent.removeAllViews();
+            // 保留WebView(底层) + 诊断Panel(顶层覆盖) → 主人切换对比
+            if (webView.getParent() == null) parent.addView(webView, new FrameLayout.LayoutParams(-1,-1));
+            parent.addView(sv);
+            Toast.makeText(this, "🐱「打开没内容」诊断面板已弹出! 请截图或复制发给小月~", Toast.LENGTH_LONG).show();
+            Log.w(TAG, "🩹 「打开没内容」专属原生诊断白面板已成功渲染喵!");
+        } catch (Throwable superT) {
+            Log.e(TAG, "诊断面板渲染自己崩了", superT);
+        }
+    }
+
+    /** 按钮辅助 */
+    private void addBtn(LinearLayout ll, String text, int bg, android.view.View.OnClickListener l) { addBtn(ll,text,bg,l,0); }
+    private void addBtn(LinearLayout ll, String text, int bg, android.view.View.OnClickListener l, int topMargin) {
+        android.widget.Button b = new android.widget.Button(this);
+        b.setText(text); b.setBackgroundColor(bg); b.setTextColor(Color.WHITE);
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1,-2); p.topMargin = topMargin; b.setLayoutParams(p);
+        b.setOnClickListener(l); ll.addView(b);
     }
 
     /** HTTP 自测：GET url 返回 [code, bodyLen, extraInfo] */
@@ -357,18 +566,18 @@ public class MainActivity extends Activity {
         return new Object[]{ code, len, String.format("CT=%s", ct) };
     }
 
-    /** 显示诊断页（v1.0.3：HTTP 200用绿卡温和提示，异常用红卡；倒计时15秒+可取消） */
+    /** 显示诊断页（v1.0.7：HTTP 200用绿卡温和提示，异常用红卡；倒计时15秒+可取消） */
     private void showErrorDiagnosticPage(Exception err, String selfTestInfo, int countdownSec) {
         boolean http200 = (selfTestInfo != null && selfTestInfo.startsWith("HTTP 200"));
         String cardBg    = http200 ? "#e8f5e9" : "#fff5f5";
         String cardBd    = http200 ? "#a5d6a7" : "#ffcdd2";
         String titleClr  = http200 ? "#2e7d32" : "#d32f2f";
-        String titleStr  = http200 ? "🐱 NoriOS v1.0.3 · 启动信息（绿色=HTTP服务已正常）" : "🐱 NoriOS v1.0.3 · 启动诊断页";
+        String titleStr  = http200 ? "🐱 NoriOS v1.0.7 · 启动信息（绿色=HTTP服务已正常）" : "🐱 NoriOS v1.0.7 · 启动诊断页";
         String desc      = http200
             ? "✅ HTTP服务器自测正常（200 OK）。<br>为保险起见系统仍展示完整诊断信息，请点击下方绿色「立即进入 HTTP 加载」按钮即可正常使用喵～"
             : "内嵌HTTP服务器未达到最佳启动状态，下方是完整诊断信息，<b>"+countdownSec+"秒后</b>将自动切换到备用加载方式喵～<br>如仍无法正常运行，请将下方截图发给开发者～小月会马上修喵！";
         StringBuilder sb = new StringBuilder();
-        sb.append("<!doctype html><html lang=zh><head><meta charset=utf-8><meta name=viewport content=\"width=device-width,initial-scale=1\"><title>NoriOS 诊断 v1.0.3</title>");
+        sb.append("<!doctype html><html lang=zh><head><meta charset=utf-8><meta name=viewport content=\"width=device-width,initial-scale=1\"><title>NoriOS 诊断 v1.0.7</title>");
         sb.append("<style>");
         sb.append("*{box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,\"PingFang SC\",\"Microsoft YaHei\",sans-serif;");
         sb.append("max-width:720px;margin:24px auto;padding:16px;background:#fff;color:#111;line-height:1.7}");
@@ -388,7 +597,7 @@ public class MainActivity extends Activity {
             sb.append("<div class=countdown id=cdBox>⏰ 自动切换倒计时：<b id=cd>").append(countdownSec).append("</b>秒（点「取消自动跳转」停止）</div>");
         }
         sb.append("<h2>📋 诊断信息</h2><table class=st>");
-        sb.append("<tr><td>版本号</td><td>NoriOS v1.0.3 · OnePlus ACE5 至尊版 ColorOS 16</td></tr>");
+        sb.append("<tr><td>版本号</td><td>NoriOS v1.0.7 · OnePlus ACE5 至尊版 ColorOS 16</td></tr>");
         sb.append("<tr><td>时间戳</td><td>").append(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new java.util.Date())).append("</td></tr>");
         sb.append("<tr><td>机型/系统</td><td>").append(android.os.Build.MODEL).append(" / Android ").append(Build.VERSION.RELEASE).append(" (SDK ").append(Build.VERSION.SDK_INT).append(")</td></tr>");
         String stDisp = (selfTestInfo==null||selfTestInfo.isEmpty()) ? "—" : selfTestInfo;
@@ -410,7 +619,7 @@ public class MainActivity extends Activity {
             sb.append("<a class=\"btn btn-gray\" href=\"javascript:startCd()\">▶️ 重新开始倒计时</a>");
         }
         sb.append("</p>");
-        sb.append("<p><small style=color:#888>NoriOS v1.0.3 小月修复版 · 一加ACE5至尊版/ColorOS 16专用 · 永久密钥存 keystores_permanent/release_v102.jks</small></p>");
+        sb.append("<p><small style=color:#888>NoriOS v1.0.7 小月修复版 · 一加ACE5至尊版/ColorOS 16专用 · 永久密钥存 keystores_permanent/release_v102.jks</small></p>");
         if (!http200) {
             sb.append("<script>var sec=").append(countdownSec)
               .append(";var timer=null;var box=document.getElementById('cd');")
@@ -508,8 +717,15 @@ public class MainActivity extends Activity {
             webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         }
 
-        // WebViewClient：URL 路由 + SSL 容错 + 错误日志
+        // WebViewClient：URL 路由 + SSL 容错 + 错误日志 + v1.0.7 诊断收集
         webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                super.onPageStarted(view, url, favicon);
+                diagLog("PAGE_START", url);
+                Log.i(TAG, "⏳ onPageStarted: " + url);
+            }
+
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
@@ -531,23 +747,42 @@ public class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
+                diagLog("PAGE_FINISHED", url);
                 Log.i(TAG, "✅ onPageFinished: " + url);
             }
 
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 super.onReceivedError(view, request, error);
+                String code = "-", desc = "(null)", u = "(null)";
                 if (Build.VERSION.SDK_INT >= 23) {
-                    Log.e(TAG, "❌ WebResourceError: " + error.getDescription()
-                            + " (code=" + error.getErrorCode() + ") url=" + request.getUrl());
+                    code = String.valueOf(error.getErrorCode());
+                    CharSequence d = error.getDescription();
+                    desc = d == null ? "(null)" : d.toString();
                 }
+                if (request != null && request.getUrl() != null) u = request.getUrl().toString();
+                String entry = "code=" + code + " desc=" + desc + " url=" + u;
+                diagLog("RES_ERR", entry);
+                Log.e(TAG, "❌ WebResourceError: " + entry);
             }
         });
 
-        // WebChromeClient：JS 弹窗 / 文件上传 / 权限 / 日志
+        // WebChromeClient：JS 弹窗 / 文件上传 / 权限 / 日志 + v1.0.7 诊断收集
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
+            public void onProgressChanged(WebView view, int newProgress) {
+                super.onProgressChanged(view, newProgress);
+                // 10/25/50/75/90/100各记一条(减少刷屏)
+                if (newProgress == 0 || newProgress == 10 || newProgress == 25 || newProgress == 50 || newProgress == 75 || newProgress == 90 || newProgress == 100) {
+                    diagLog("PROGRESS", newProgress + "%");
+                }
+            }
+
+            @Override
             public boolean onConsoleMessage(ConsoleMessage cm) {
+                String tag = "CON_" + cm.messageLevel();
+                String entry = "L" + cm.lineNumber() + " @ " + cm.sourceId() + " :: " + cm.message();
+                diagLog(tag, entry);
                 Log.d(TAG, cm.messageLevel() + ": " + cm.message() +
                         " -- line " + cm.lineNumber() + " @ " + cm.sourceId());
                 return true;
